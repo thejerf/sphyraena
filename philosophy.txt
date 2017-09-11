@@ -1,0 +1,16 @@
+Sphyraena is a web framework designed to make writing secure code the
+default. It does its best in an incredibly hostile environment to turn the
+web into a default-deny framework.
+
+While anyone can use it, many of its design decisions are based on writing
+code in a team, where the team conducts code reviews. The web, being
+the massive hack that it is, means that many real applications will have to
+do something less than "the most secure thing available on the web", and
+the point of Sphyraena is ultimately not to make those things impossible,
+but to provide you with an environment in which such decisions are
+deliberate, visible, and reviewable.
+
+Understanding the priority of "review" is critical to understanding many
+aspects of Sphyraena's design. For instance, the design of the route
+mapping is designed from top to bottom to ensure that the entire routing
+system can be easily reviewed for security concerns.

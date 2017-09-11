@@ -1,0 +1,37 @@
+So, here's the plan:
+
+* RAMSessions need to work.
+
+* A Router element RequiresAuthentication that checks for IsAuthenticated
+  being true on the object in the context, and if it isn't, intercepts the
+  request into a session and goes to the StreamingREST handler provided for
+  authentication.
+
+* The session then gets changed to that user's session.
+
+
+
+Requirements:
+
+* Lock out functionality.
+* Ability to send token to remove lockout.
+* Lockout must only trigger on a given account when some sort of "active"
+  authentication is used. Passive authentication attempts for some
+  authentication should not increment a lockout count.
+
+  It is common in our code base to have multiple authentication methods.
+
+
+
+AUTHENTICATIONS should always be constant for a given
+person. AUTHENTICATIONS should have an identity.
+
+AUTHORIZATIONS can switch in and out. AUTHORIZATIONS do not have an
+identity, they should just be PERMISSIONS and nothing else. It should be
+possible to give a given set of permissions to a different AUTHENTICATION
+and for everything to work correctly.
+
+A SESSION must always have the same authorization and authentication, any
+change must change the session, but there can be many extant sessions for
+the same authorization. The act of changing out a session should cancel the
+current session entirely.

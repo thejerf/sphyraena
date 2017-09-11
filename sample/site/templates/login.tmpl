@@ -1,0 +1,29 @@
+{{ template "header.tmpl" . }}
+
+<form method="POST">
+  <table>
+    <tr>
+      <td class="login_label">Username:</td>
+      <td class="login_field"><input type="text" name="username"></td>
+    </tr>
+    <tr>
+      <td class="login_label">Password:</td>
+      <td class="login_field"><input type="password" name="password"></td>
+    </tr>
+    <tr>
+      <td colspan="2" align="center">
+        <input type="submit" class="button" value="login">
+      </td>
+    </tr>
+  </table>
+
+  <p><a href="javascript:void()" onclick="document.getElementById('hint').style.display=''">Password
+  hint?</a></p>
+
+  <p style="display: none" id="hint">The username is <tt>{{ .Username }}</tt>
+  and the password is <tt>{{ .Password }}</tt>. Pretty good hint, huh?
+  (Obviously, you would not generally do this on a real site....)</p>
+
+</form>
+
+{{ template "footer.tmpl" . }}

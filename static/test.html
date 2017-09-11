@@ -1,0 +1,58 @@
+<html>
+  <head>
+    <title>Websocket Playground</title>
+    <!-- <script src="subscriptions.js"></script> -->
+    <script src="sockjs.min.js"></script>
+    <script>
+// test code:
+
+sock = new SockJS("/socket");
+
+sock.onopen = function() {
+     console.log('open');
+ };
+ sock.onmessage = function(e) {
+     console.log('message', e.data);
+ };
+ sock.onclose = function() {
+     console.log('close');
+ };
+
+// w = new stRestSession("/socket");
+
+// var res1 = w.resource("/1", function(res) {
+//    strestLogger("Handling");
+//    var st = JSON.stringify(res);
+//    strestLogger("Setting to " + st);
+
+//    document.getElementById("response").innerHTML = st;
+//}, function(evt) {
+//    strestLogger("Event");
+//    var st = JSON.stringify(evt);
+//    document.getElementById("event").innerHTML = st;
+//});
+
+//var res2 = w.resource("/2", function(res) {
+//    strestLogger("Handling");
+//    var st = JSON.stringify(res);
+//    strestLogger("Setting to " + st);
+
+//    document.getElementById("response2").innerHTML = st;
+//}, function(evt) {
+//    strestLogger("Event");
+//    var st = JSON.stringify(evt);
+//    document.getElementById("event2").innerHTML = st;
+//});
+    </script>
+  </head>
+  <body>
+    <p>Response: <span id="response"></span></p>
+    <p>Event: <span id="event"></span></p>
+    <p>Response 2: <span id="response2"></span></p>
+    <p>Event 2: <span id="event2"></span></p>
+  </body>
+</html>
+
+
+
+

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+	<title>{{ .Title }}</title>
+	<link rel="stylesheet" href="/public/style.css">
+
+    <!-- FIXME: Should not load on index page -->
+    <script src="/public/sockjs.min.js"></script>
+    <script src="/public/subscriptions.js"></script>
+
+    <!-- FIXME: Should not rely on CDNs for secure code without hashing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.2/react.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.2/react-dom.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
+    <script type="text/babel" src="/public/widgets.js"></script>
+  </head>
+  <body>
+	<div class="page">
+	  <div class="header">
+		<h1 class="header-heading">{{ .Title }}</h1>
+	  </div>
+	  <div class="content">

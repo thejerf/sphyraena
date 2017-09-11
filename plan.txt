@@ -1,0 +1,5 @@
+* Router must be able to run its handler in a separate goroutine.
+* Router must be able to offer the stream information and notice when it's
+  not present.
+* The streams must finally work again.
+* Streams should be based on negotiation.

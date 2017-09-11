@@ -1,0 +1,8 @@
+* The context package needs a rename. It should go ahead and embed a
+  context in there but it shouldn't conflict with the standard one.
+* SphyraenaResponseWriter is WTF too long. Needs to be shorter somewhere.
+* The startup procedure needs to be simpler. Basically the user just needs
+  to be able to specify the various pieces, and they should know how to
+  wire themselves together, via interfaces if necessary.
+* The router textual serialization really needs to be finished and usable.
+* The router clauses need nicer returns than router.Result{}.

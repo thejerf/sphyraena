@@ -1,0 +1,107 @@
+This file is a sketch of the spec for streaming REST.
+
+First, existing alternatives:
+
+Meteor: Interesting, claims to be streaming REST, but fails to unify like
+this. Streams and REST requests are still separate.
+
+Um, there was some other server here that had closer to the same idea, but
+the REST implementation had a lot of hard-coded values specific to the name
+of the server in it and seemed very special-purpose.
+
+So, no, this is not the first implementation, but I'm trying to seriously
+spec something here.
+
+STREAMING REST
+--------------
+
+A Streaming REST request is a superset of an existing REST request, which
+is of course ultimately just another way of saying an HTTP request.
+
+Conceptually, the idea is to invert the relationship between the standard
+web "page" model and a stream. It is very easy to make a page a special
+case of a stream, which simply returns one message and then terminates. It
+is much harder to make a stream a special case of a page, which we've been
+trying to do for decades (plural) now.
+
+In order to fit into existing web request models, the Streaming REST
+client performs a variant of content-negotiation with the server. The
+client indicates whether it desires a stream (and, by extension, whether it
+is capable of streaming), and the server indicates whether the given
+resource is capable or interested in streaming.
+
+If a non-streaming-capable REST client speaks to a streaming-capable REST
+server, it will not request streaming, and the server will thus never
+create a streaming context. If a streaming-capable REST client speaks to a
+web server that is not streaming capable, the server will not understand
+the streaming headers, fail to send back any streaming headers, and the
+client will then determine that no stream is available.
+
+CLIENT-SIDE NEGOTIATION
+-----------------------
+
+The client negotiates streaming via headers:
+
+Accept-Streaming
+----------------
+
+Accept-Streaming indicates what the client is ready to receive as streamed
+elements. The format is a comma-separated list of MIME-type specifications,
+followed by an optional tag identifying an application-specific
+clarification of the event type.
+
+  mime-type:client-specific-tag
+
+The client-specific tag is provided because the mere specification of a
+serialization format for some sort of value is not sufficient to identify a
+type of event. So, for example:
+
+  application/json:internal_chat,image/jpeg:avatars
+
+(Is there anything else necessary?)
+
+Accept-Streaming-Type specifies a comma-separate list of protocols the
+client supports.
+
+SERVER-SIDE NEGOTIATION
+-----------------------
+
+On the server, if the server resource is capable of streaming, it will emit
+a Streaming-Context header, which will instruct the client where the
+streams will be going. It must be of a protocol type the client understood.
+
+The response will also contain a "Stream-ID", which uniquely identifies
+this stream. Streams may map to resources in arbitrary ways; each new
+request to a resource may create a new stream, each request to a resource
+may be tied to a user, or each request to a user may result in the same
+stream being shared by multiple users, or any other possible combination.
+
+The act of emitting a Stream-ID means the server must also create the
+streaming context for the session and hold on to it for a sufficient period
+of time while waiting for the remote client to connect to it through some
+mechanism. Events may need to be buffered until the client receives
+them. This is required so that request replies and subscription can be
+atomic.
+
+STREAMING CONTEXT
+-----------------
+
+A "streaming context" is some mechanism that permits bidirectional
+communication between the server and the client which is capable of
+carrying arbitrary messages, including potentially ones with binary
+payloads.
+
+As all such options for communication will be tied to the SOP, this will
+also inherit the SOP by default. No new mechanisms are proposed.
+
+There are many options, but we only define:
+
+ws-stream and wss-stream: Websocket-based streaming, where JSON-based text
+messages, and JSON-based metadata immediately preceding binary messages, is
+used.
+
+http:// and https:// ... define COMET-based endpoints where the session is
+identified by some intrinsic auth the user uses.
+
+In order to send data, a return stream ID must be identified.
+
