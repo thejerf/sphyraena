@@ -27,7 +27,7 @@ import (
 type CookieAuth struct {
 	authBlock             *router.RouteBlock
 	passwordAuthenticator enticate.PasswordAuthenticator
-	Options               []func(*cookie.OutCookie) error
+	Options               []cookie.Option
 }
 
 type justAuthenticated struct{}

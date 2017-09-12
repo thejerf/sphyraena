@@ -209,7 +209,7 @@ func (rr *Request) AddHeader(key, value string) {
 
 // AddCookie adds a cookie to this request, using the current session as
 // the Authenticator. It mirrors cookie.NewOut
-func (rr *Request) AddCookie(name string, value string, options ...func(*cookie.OutCookie) error) error {
+func (rr *Request) AddCookie(name string, value string, options ...cookie.Option) error {
 	c, err := cookie.NewOut(name, value, rr.Session(), options...)
 	if err != nil {
 		return err
