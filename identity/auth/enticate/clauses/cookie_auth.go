@@ -54,14 +54,14 @@ func IsJustAuthenticated(c *context.Context) bool {
 // The PasswordAuthenticator is used to do the username/password
 // authentication. If this check passes, the user will be Authenticated
 // with the auth.Entication returned by the password authenticator.
-func NewCookieAuth(rb *router.RouteBlock, pa enticate.PasswordAuthenticator) (*CookieAuth, error) {
+func NewCookieAuth(rb *router.RouteBlock, pa enticate.PasswordAuthenticator, options ...cookie.Option) (*CookieAuth, error) {
 	if rb == nil {
 		return nil, errors.New("No router block passed in for cookie auth")
 	}
 	if pa == nil {
 		return nil, errors.New("no password authenticator passed in for cookie auth")
 	}
-	return &CookieAuth{rb, pa, nil}, nil
+	return &CookieAuth{rb, pa, options}, nil
 }
 
 func (ca *CookieAuth) Route(r *router.Request) (res router.Result) {
