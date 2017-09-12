@@ -106,6 +106,8 @@ func (srw *SphyraenaResponseWriter) writeResponse() {
 
 // SetDoneChan sets the channel that the SphyraenaResponseWriter will use
 // to indicate its done-ness to the given channel.
+//
+// FIXME: Where all is this used?
 func (srw *SphyraenaResponseWriter) SetDoneChan(done chan struct{}) {
 	srw.doneChan = done
 }
