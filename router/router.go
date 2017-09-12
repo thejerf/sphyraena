@@ -96,7 +96,7 @@ func (rr *Request) routeResult() *context.RouteResult {
 	headers := http.Header{}
 	cookies := map[string]*cookie.OutCookie{}
 	holes := hole.SecurityHoles{}
-	for _, frame := range rr.frames[0:rr.current] {
+	for _, frame := range rr.frames[0 : rr.current+1] {
 		for key, value := range frame.parameters {
 			parameters[key] = value
 		}
@@ -119,7 +119,7 @@ func (rr *Request) routeResult() *context.RouteResult {
 	remainingPath := string(rr.frames[rr.current].remainingPath())
 	precedingPath := string(rr.basePath[0 : len(rr.basePath)-len(remainingPath)])
 
-	return &context.RouteResult{
+	result := &context.RouteResult{
 		Parameters:    parameters,
 		PrecedingPath: precedingPath,
 		RemainingPath: remainingPath,
@@ -127,6 +127,7 @@ func (rr *Request) routeResult() *context.RouteResult {
 		Cookies:       cookies,
 		Holes:         holes,
 	}
+	return result
 }
 
 // A request is finalized either when the matcher says it is, or when the
