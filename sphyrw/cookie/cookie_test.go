@@ -15,7 +15,7 @@ import (
 type successfulTest struct {
 	name   string
 	value  string
-	opts   []func(*OutCookie) error
+	opts   []Option
 	result string
 }
 
@@ -36,17 +36,17 @@ func TestSuccessfulRendering(t *testing.T) {
 	sessionCookie := "session=" + string(sessionID)
 
 	tests := []successfulTest{
-		{"c", "v", []func(*OutCookie) error{}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure"},
-		{"c", "v", []func(*OutCookie) error{Delete}, "c=;Expires=Fri, 02-Jan-1970 00:00:01 GMT;Path=/;HttpOnly;Secure"},
+		{"c", "v", []Option{}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure"},
+		{"c", "v", []Option{Delete}, "c=;Expires=Fri, 02-Jan-1970 00:00:01 GMT;Path=/;HttpOnly;Secure"},
 		// ensure order works
-		{"c", "v", []func(*OutCookie) error{Duration(time.Hour), Session},
+		{"c", "v", []Option{Duration(time.Hour), Session},
 			"c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure"},
-		{"c", "v", []func(*OutCookie) error{Duration(time.Hour)},
+		{"c", "v", []Option{Duration(time.Hour)},
 			"c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Max-Age=3600;Expires=Fri, 14 Jul 2017 03:40:00 GMT;Path=/;HttpOnly;Secure"},
-		{"c", "v", []func(*OutCookie) error{Path("/moo/")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/moo/;HttpOnly;Secure"},
-		{"c", "v", []func(*OutCookie) error{Domain("fo-o2.com")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;Domain=fo-o2.com;HttpOnly;Secure"},
-		{"c", "v", []func(*OutCookie) error{Domain(".foo.com")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;Domain=.foo.com;HttpOnly;Secure"},
-		{"c", "v", []func(*OutCookie) error{ClientCanRead}, "c=v;Path=/;Secure"},
+		{"c", "v", []Option{Path("/moo/")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/moo/;HttpOnly;Secure"},
+		{"c", "v", []Option{Domain("fo-o2.com")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;Domain=fo-o2.com;HttpOnly;Secure"},
+		{"c", "v", []Option{Domain(".foo.com")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;Domain=.foo.com;HttpOnly;Secure"},
+		{"c", "v", []Option{ClientCanRead}, "c=v;Path=/;Secure"},
 	}
 
 	for _, test := range tests {
@@ -108,32 +108,32 @@ func TestNonstandardOut(t *testing.T) {
 type testIllegal struct {
 	name  string
 	value string
-	opts  []func(*OutCookie) error
+	opts  []Option
 }
 
 // This function verifies that illegal settings correctly fail.
 func TestIllegalCookies(t *testing.T) {
 	tests := []testIllegal{
-		{" space", "v", []func(*OutCookie) error{}},
-		{"\ttab", "v", []func(*OutCookie) error{}},
-		{"n", " strict mode space", []func(*OutCookie) error{}},
-		{"", "", []func(*OutCookie) error{}},
-		{"", "\tmoo", []func(*OutCookie) error{}},
-		{"n", "v", []func(*OutCookie) error{Duration(time.Duration(-2))}},
-		{"n", "v", []func(*OutCookie) error{Duration(time.Millisecond)}},
-		{"n", "v", []func(*OutCookie) error{Duration(time.Hour * 24 * 365 * 24)}},
-		{"c", "\x10", []func(*OutCookie) error{}},
-		{"c", "v", []func(*OutCookie) error{Path("/bad;path/")}},
+		{" space", "v", []Option{}},
+		{"\ttab", "v", []Option{}},
+		{"n", " strict mode space", []Option{}},
+		{"", "", []Option{}},
+		{"", "\tmoo", []Option{}},
+		{"n", "v", []Option{Duration(time.Duration(-2))}},
+		{"n", "v", []Option{Duration(time.Millisecond)}},
+		{"n", "v", []Option{Duration(time.Hour * 24 * 365 * 24)}},
+		{"c", "\x10", []Option{}},
+		{"c", "v", []Option{Path("/bad;path/")}},
 
 		// lots of ways for domain to be illegal, aren't there?
-		{"c", "v", []func(*OutCookie) error{Domain("")}},
-		{"c", "v", []func(*OutCookie) error{Domain("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")}},
-		{"c", "v", []func(*OutCookie) error{Domain("foo-.com")}},
-		{"c", "v", []func(*OutCookie) error{Domain("foo..com")}},
-		{"c", "v", []func(*OutCookie) error{Domain("foo.-com")}},
-		{"c", "v", []func(*OutCookie) error{Domain("foo.com-")}},
-		{"c", "v", []func(*OutCookie) error{Domain("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com")}},
-		{"c", "v", []func(*OutCookie) error{Domain("foo\t.com")}},
+		{"c", "v", []Option{Domain("")}},
+		{"c", "v", []Option{Domain("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")}},
+		{"c", "v", []Option{Domain("foo-.com")}},
+		{"c", "v", []Option{Domain("foo..com")}},
+		{"c", "v", []Option{Domain("foo.-com")}},
+		{"c", "v", []Option{Domain("foo.com-")}},
+		{"c", "v", []Option{Domain("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com")}},
+		{"c", "v", []Option{Domain("foo\t.com")}},
 	}
 
 	for idx, test := range tests {

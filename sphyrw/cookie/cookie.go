@@ -79,6 +79,9 @@ const (
 	unauthenticated = false
 )
 
+// A Option modifies an OutCookien in the given manner.
+type Option func(*OutCookie) error
+
 var t abtime.AbstractTime = abtime.NewRealTime()
 
 type errCookieInvalid struct {
@@ -411,7 +414,7 @@ func isAuthed(s string) bool {
 //
 // This is a "pure function", so if you pass in only constant values, you
 // can be assured no error will come out.
-func NewOut(name, value string, authenticator secret.Authenticator, options ...func(*OutCookie) error) (*OutCookie, error) {
+func NewOut(name, value string, authenticator secret.Authenticator, options ...Option) (*OutCookie, error) {
 	return newcookie(true, name, value, authenticator, options...)
 }
 
@@ -428,11 +431,11 @@ func NewOut(name, value string, authenticator secret.Authenticator, options ...f
 // See https://hackerone.com/reports/14883 for an exciting unexpected
 // consequence of allowing commas in the value (when combined with other
 // things).
-func NewNonstandardOut(name, value string, authenticator secret.Authenticator, options ...func(*OutCookie) error) (*OutCookie, error) {
+func NewNonstandardOut(name, value string, authenticator secret.Authenticator, options ...Option) (*OutCookie, error) {
 	return newcookie(false, name, value, authenticator, options...)
 }
 
-func newcookie(strict bool, name, value string, authenticator secret.Authenticator, options ...func(*OutCookie) error) (*OutCookie, error) {
+func newcookie(strict bool, name, value string, authenticator secret.Authenticator, options ...Option) (*OutCookie, error) {
 	if name == "" {
 		return nil, &errCookieInvalid{name, "no name given"}
 	}
@@ -582,7 +585,7 @@ func Delete(c *OutCookie) error {
 // the intent), or if the resulting Expires calculation's year exceeds
 // 2038. This will presumably at some point be lifted, but it's still a bit
 // of a bad idea to send out cookies beyond that.
-func Duration(d time.Duration) func(*OutCookie) error {
+func Duration(d time.Duration) Option {
 	return func(c *OutCookie) error {
 		var reasonInvalid error
 		if d < 0 {
@@ -607,15 +610,16 @@ func Duration(d time.Duration) func(*OutCookie) error {
 	}
 }
 
-// Session turns this into a session cookie, which is accomplished by not
-// sending any expires time.
+// Session is an Option that turns this into a session cookie, which is
+// accomplished by not sending any expires time.
 func Session(c *OutCookie) error {
 	c.hasExpires = false
 	c.maxAge = time.Duration(0)
 	return nil
 }
 
-// Forever labels the cookie as the closest to "forever" you can get.
+// Forever is an Option that labels the cookie as the closest to "forever"
+// you can get.
 func Forever(c *OutCookie) error {
 	c.hasExpires = true
 	c.expires = time.Unix(2147483647, 0)
@@ -639,7 +643,7 @@ func Forever(c *OutCookie) error {
 //
 // An error will be returned if the path does not conform to RFC6265's
 // specification for what a path can be.
-func Path(path string) func(*OutCookie) error {
+func Path(path string) Option {
 	return func(c *OutCookie) error {
 		for _, b := range []byte(path) {
 			if b < 32 || b >= 128 || b == '"' || b == ';' || b == '\\' {
@@ -669,7 +673,7 @@ func Path(path string) func(*OutCookie) error {
 // working as designed.
 //
 // Setting the empty string will result in no domain value being sent out.
-func Domain(domain string) func(*OutCookie) error {
+func Domain(domain string) Option {
 	return func(c *OutCookie) error {
 		if !isCookieDomainName(domain) {
 			return &errCookieInvalid{c.name, "domain is illegal"}
@@ -732,7 +736,8 @@ func isCookieDomainName(s string) bool {
 	return ok
 }
 
-// ClientCanRead allows the client's Javascript to see the cookie.
+// ClientCanRead is an Option that allows the client's Javascript to see
+// the cookie.
 //
 // This sends the cookie without the HTTPOnly flag, renamed to make it more
 // clear what that means. This also turns off authentication, because the
@@ -743,7 +748,8 @@ func ClientCanRead(c *OutCookie) error {
 	return nil
 }
 
-// Insecure allows the cookie to be sent over HTTP, in addition to HTTPS.
+// Insecure is an Option that allows the cookie to be sent over HTTP, in
+// addition to HTTPS.
 //
 // This is the "secure" flag on a cookie, with a method name designed to
 // make security review easier.
