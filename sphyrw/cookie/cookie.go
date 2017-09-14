@@ -2,10 +2,11 @@
 
 Package cookie represents and renders cookies.
 
-While this is the documentation for the cookie objects, cookies are
-generally created through either the session (for authentication) or
-the context (for unauthenticated). Since that's probably going to prove
-pretty klunky, we'll see how that goes.
+This package creates and renders cookie objects, and end-user use
+is possible, but it is generally intended for the average Sphyraena
+site that the framework manages the session cookie, and all other
+state is managed via the session. Securing cookie content is tricky at
+the best of times.
 
 The cookie package turns cookies into a default-deny system by making
 the most secure cookies the default, and requiring you to selectively back
@@ -21,6 +22,10 @@ By default, a cookie emitted by Sphyraena is:
   * Strictly standards-compliant (checked for conformance to the
     strictest reading of RFC 6265).
   * Path set to /.
+  * The SameSite flag will be set to Strict.
+
+As other security features are added to cookies, they will be added in by
+default here.
 
 In addition, this takes over cookie rendering and parsing duties from
 net/http. Rendering is taken over because net/http attempts to "fix up"
@@ -39,13 +44,13 @@ when types are cheap
 
 The OutCookie is configured via the "functional options" pattern:
 http://dave.cheney.net/2014/10/17/functional-options-for-friendly-apis
-The functions that either are func(*InCookie) or return one are
+The functionsg that either are func(*OutCookie) or return one are
 functional options.
 
 Cookie encryption is deliberately NOT supported, and will not be
 supported. It is too frequently misused and generally provides only the
 illusion of security. If you do not want a client to see a value, do not
-send it to them.
+send it to them; stick it in the session.
 
 The best current description of cookies is available from RFC 6265.
 http://tools.ietf.org/html/rfc6265 But most browsers accept spaces and
@@ -79,6 +84,33 @@ const (
 	unauthenticated = false
 )
 
+// Strict can be passed to the SameSite option to set the SameSite cookie
+// flag to Strict, which is the default.
+var Strict = CookieStrictness{0}
+
+// Lax can be passed to the SameSite option to set the SameSite cookie flag
+// to Lax.
+var Lax = CookieStrictness{1}
+
+// NoSameSiteSetting can be passed to the SameSite option to entirely
+// remove the SameSite setting from the cookie.
+var NoSameSiteSetting = CookieStrictness{2}
+
+type CookieStrictness struct {
+	strictness byte
+}
+
+func (cs CookieStrictness) render() string {
+	switch cs.strictness {
+	case 0:
+		return "SameSite=Strict"
+	case 1:
+		return "SameSite=Lax"
+	default:
+		return ""
+	}
+}
+
 // A Option modifies an OutCookien in the given manner.
 type Option func(*OutCookie) error
 
@@ -105,10 +137,11 @@ type OutCookie struct {
 	maxAge     time.Duration
 	expires    time.Time
 
-	path         string
-	domain       string
-	clientAccess bool
-	insecure     bool
+	path               string
+	domain             string
+	clientAccess       bool
+	insecure           bool
+	sameSiteStrictness CookieStrictness
 }
 
 // Name returns the name of the outcookie.
@@ -558,6 +591,10 @@ func (c *OutCookie) Render() (string, error) {
 	if !c.insecure {
 		chunks = append(chunks, "Secure")
 	}
+	sameSite := c.sameSiteStrictness.render()
+	if sameSite != "" {
+		chunks = append(chunks, sameSite)
+	}
 
 	return strings.Join(chunks, ";"), nil
 }
@@ -616,6 +653,18 @@ func Session(c *OutCookie) error {
 	c.hasExpires = false
 	c.maxAge = time.Duration(0)
 	return nil
+}
+
+// SameSite will configure the SameSite value on the cookie. As I write
+// this this is only in Chrome, but I expect it is very likely that it will
+// go out to other browsers.
+//
+// See: https://tools.ietf.org/html/draft-west-first-party-cookies-07
+func SameSite(cs CookieStrictness) Option {
+	return func(c *OutCookie) error {
+		c.sameSiteStrictness = cs
+		return nil
+	}
 }
 
 // Forever is an Option that labels the cookie as the closest to "forever"

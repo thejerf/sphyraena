@@ -36,17 +36,19 @@ func TestSuccessfulRendering(t *testing.T) {
 	sessionCookie := "session=" + string(sessionID)
 
 	tests := []successfulTest{
-		{"c", "v", []Option{}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure"},
-		{"c", "v", []Option{Delete}, "c=;Expires=Fri, 02-Jan-1970 00:00:01 GMT;Path=/;HttpOnly;Secure"},
+		{"c", "v", []Option{}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure;SameSite=Strict"},
+		{"c", "v", []Option{Delete}, "c=;Expires=Fri, 02-Jan-1970 00:00:01 GMT;Path=/;HttpOnly;Secure;SameSite=Strict"},
 		// ensure order works
 		{"c", "v", []Option{Duration(time.Hour), Session},
-			"c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure"},
+			"c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure;SameSite=Strict"},
 		{"c", "v", []Option{Duration(time.Hour)},
-			"c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Max-Age=3600;Expires=Fri, 14 Jul 2017 03:40:00 GMT;Path=/;HttpOnly;Secure"},
-		{"c", "v", []Option{Path("/moo/")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/moo/;HttpOnly;Secure"},
-		{"c", "v", []Option{Domain("fo-o2.com")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;Domain=fo-o2.com;HttpOnly;Secure"},
-		{"c", "v", []Option{Domain(".foo.com")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;Domain=.foo.com;HttpOnly;Secure"},
-		{"c", "v", []Option{ClientCanRead}, "c=v;Path=/;Secure"},
+			"c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Max-Age=3600;Expires=Fri, 14 Jul 2017 03:40:00 GMT;Path=/;HttpOnly;Secure;SameSite=Strict"},
+		{"c", "v", []Option{Path("/moo/")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/moo/;HttpOnly;Secure;SameSite=Strict"},
+		{"c", "v", []Option{Domain("fo-o2.com")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;Domain=fo-o2.com;HttpOnly;Secure;SameSite=Strict"},
+		{"c", "v", []Option{Domain(".foo.com")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;Domain=.foo.com;HttpOnly;Secure;SameSite=Strict"},
+		{"c", "v", []Option{ClientCanRead}, "c=v;Path=/;Secure;SameSite=Strict"},
+		{"c", "v", []Option{SameSite(Lax)}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure;SameSite=Lax"},
+		{"c", "v", []Option{SameSite(NoSameSiteSetting)}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure"},
 	}
 
 	for _, test := range tests {
@@ -96,7 +98,7 @@ func TestBadAuthenticatorRendering(t *testing.T) {
 func TestNonstandardOut(t *testing.T) {
 	c, _ := NewNonstandardOut("cookie", "value is,", nil)
 	val, _ := c.Render()
-	if val != `cookie="value is,";Path=/;HttpOnly;Secure` {
+	if val != `cookie="value is,";Path=/;HttpOnly;Secure;SameSite=Strict` {
 		t.Fatal("nonstandard cookie didn't work", val)
 	}
 	_, err := NewNonstandardOut("cookie", "value;", nil)
@@ -337,5 +339,5 @@ func ExampleNewOut() {
 	val, _ := cookie.Render()
 	fmt.Println(val)
 
-	// Output: this_cookie_is_so_emo=true;Expires=Tue, 19 Jan 2038 03:14:07 GMT;Path=/;Domain=despair.com;HttpOnly
+	// Output: this_cookie_is_so_emo=true;Expires=Tue, 19 Jan 2038 03:14:07 GMT;Path=/;Domain=despair.com;HttpOnly;SameSite=Strict
 }
