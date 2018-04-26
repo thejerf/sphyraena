@@ -20,14 +20,9 @@ import (
 // CookieAuth is a router clause that turns on the cookie-based
 // authentication. This allows you to not incur the costs of authentication
 // on requests that don't need it.
-//
-// Options can be used to modify the cookie's options on the way out. This
-// would probably be used primarily to add cookie.Insecure to the options
-// to permit use on non-HTTPS environments.
 type CookieAuth struct {
 	authBlock             *router.RouteBlock
 	passwordAuthenticator enticate.PasswordAuthenticator
-	Options               []cookie.Option
 }
 
 type justAuthenticated struct{}
@@ -40,6 +35,9 @@ func markJustAuthenticated(c *context.Context) {
 // request where the user was password authenticated. That is, not just
 // that they were authenticated via the cookie, but that they logged in
 // with a username and password.
+//
+// FIXME: Why is this? Should it just be as the name suggests and be
+// IsJustAuthenticated, without regard to how the auth was done?
 func IsJustAuthenticated(c *context.Context) bool {
 	val := c.Value(justAuthenticated{})
 	return val != nil && val.(bool)
@@ -54,54 +52,71 @@ func IsJustAuthenticated(c *context.Context) bool {
 // The PasswordAuthenticator is used to do the username/password
 // authentication. If this check passes, the user will be Authenticated
 // with the auth.Entication returned by the password authenticator.
-func NewCookieAuth(rb *router.RouteBlock, pa enticate.PasswordAuthenticator, options ...cookie.Option) (*CookieAuth, error) {
+//
+// To use this as an inline blocker that requires authentication, you can
+// pass in a RouteBlock that will perform authentication by providing the
+// user a form. To use it with an independent REST request that will auth
+// the user, you can pass in something that just statically returns some
+// form of permission denied/404/whatever.
+func NewCookieAuth(rb *router.RouteBlock, pa enticate.PasswordAuthenticator) (*CookieAuth, error) {
 	if rb == nil {
 		return nil, errors.New("No router block passed in for cookie auth")
 	}
 	if pa == nil {
 		return nil, errors.New("no password authenticator passed in for cookie auth")
 	}
-	return &CookieAuth{rb, pa, options}, nil
+	return &CookieAuth{rb, pa}, nil
+}
+
+// FIXME: CookieAdder belong here or somewhere else?
+func PasswordAuthenticate(pa enticate.PasswordAuthenticator, r *context.Context) (*cookie.OutCookie, error) {
+	// FIXME: CSRF form protection
+	// FIXME: Which ideally shouldn't require a call here and/or can't be skipped
+	r.ParseForm()
+
+	username := unicode.NFKCNormalize(r.Form.Get("username"))
+	password := unicode.NFKCNormalize(r.Form.Get("password"))
+
+	auth, authErr := pa.Authenticate(username, password)
+	if authErr != nil {
+		fmt.Printf("Got an auth error: %v\n", authErr)
+		r.SetAuthError(authErr)
+		return nil, authErr
+	}
+
+	identity := &identity.Identity{auth}
+	session, err := r.NewSession(identity)
+	if err != nil {
+		// FIXME
+		fmt.Printf("What does it mean for this error: %v\n", err)
+		return nil, err
+	}
+	r.SetSession(session)
+	markJustAuthenticated(r)
+	hasID, sessionID := session.SessionID()
+	if hasID {
+		cookie, err := cookie.NewOut("session", string(sessionID), r.Session())
+		if err != nil {
+			return nil, err
+		}
+		return cookie, nil
+	} else {
+		fmt.Printf("Established session without identity?\n")
+	}
+
+	return nil, nil
 }
 
 func (ca *CookieAuth) Route(r *router.Request) (res router.Result) {
 	sessionCookie := r.Context.Cookies.Get("session")
 
 	if sessionCookie == nil {
-		// FIXME: CSRF form protection
-		r.ParseForm()
-
-		username := unicode.NFKCNormalize(r.Form.Get("username"))
-		password := unicode.NFKCNormalize(r.Form.Get("password"))
-
-		auth, err := ca.passwordAuthenticator.Authenticate(username, password)
-		if auth != nil {
-			identity := &identity.Identity{auth}
-			session, err := r.NewSession(identity)
-			if err != nil {
-				fmt.Printf("What does it mean for this error: %v\n", err)
-				// FIXME
-				res.RouteBlock = ca.authBlock
-				return
+		cookie, err := PasswordAuthenticate(ca.passwordAuthenticator, r.Context)
+		if err == nil {
+			if cookie != nil {
+				r.AddCookie(cookie)
 			}
-			r.SetSession(session)
-			markJustAuthenticated(r.Context)
-			hasID, sessionID := session.SessionID()
-			if hasID {
-				err := r.AddCookie("session", string(sessionID), ca.Options...)
-				if err != nil {
-					res.Error = err
-					return
-				}
-				// deliberately pass through to subsequent resources
-				return
-			} else {
-				fmt.Printf("Established session without identity?\n")
-			}
-		} else if err != nil {
-			fmt.Printf("Got an auth error: %v\n", err)
-			r.Context.SetAuthError(err)
-			res.RouteBlock = ca.authBlock
+			// pass through to the underlying mechanism
 			return
 		}
 		// If auth yielded neither an error nor an authentication, we are

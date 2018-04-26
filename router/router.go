@@ -96,7 +96,7 @@ func (rr *Request) routeResult() *context.RouteResult {
 	headers := http.Header{}
 	cookies := map[string]*cookie.OutCookie{}
 	holes := hole.SecurityHoles{}
-	for _, frame := range rr.frames[0 : rr.current+1] {
+	for _, frame := range rr.frames[0:rr.current] {
 		for key, value := range frame.parameters {
 			parameters[key] = value
 		}
@@ -119,7 +119,7 @@ func (rr *Request) routeResult() *context.RouteResult {
 	remainingPath := string(rr.frames[rr.current].remainingPath())
 	precedingPath := string(rr.basePath[0 : len(rr.basePath)-len(remainingPath)])
 
-	result := &context.RouteResult{
+	return &context.RouteResult{
 		Parameters:    parameters,
 		PrecedingPath: precedingPath,
 		RemainingPath: remainingPath,
@@ -127,7 +127,6 @@ func (rr *Request) routeResult() *context.RouteResult {
 		Cookies:       cookies,
 		Holes:         holes,
 	}
-	return result
 }
 
 // A request is finalized either when the matcher says it is, or when the
@@ -210,13 +209,8 @@ func (rr *Request) AddHeader(key, value string) {
 
 // AddCookie adds a cookie to this request, using the current session as
 // the Authenticator. It mirrors cookie.NewOut
-func (rr *Request) AddCookie(name string, value string, options ...cookie.Option) error {
-	c, err := cookie.NewOut(name, value, rr.Session(), options...)
-	if err != nil {
-		return err
-	}
-	rr.frames[rr.current].cookies[name] = c
-	return nil
+func (rr *Request) AddCookie(c *cookie.OutCookie) {
+	rr.frames[rr.current].cookies[c.Name()] = c
 }
 
 // SetHeader sets the given HTTP header in the response only if this frame

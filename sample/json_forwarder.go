@@ -114,8 +114,6 @@ type JSONResponse struct {
 // This does Sphyraena-specific functionality, like determining the
 // logged-in user.
 func (jf *JSONForwarder) ServeStreaming(rw *sphyrw.SphyraenaResponseWriter, context *context.Context) {
-	fmt.Println("Hello?")
-
 	// if this comes back blank, it will not be passed in
 	userID, _ := context.Session().Identity().UniqueID()
 

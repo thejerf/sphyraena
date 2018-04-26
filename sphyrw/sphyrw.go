@@ -21,15 +21,11 @@ simply a SphyraenaResponseWriter cast into an http.ResponseWriter.
 package sphyrw
 
 import (
-	"bufio"
-	"errors"
-	"net"
+	"encoding/json"
 	"net/http"
 
 	"github.com/thejerf/sphyraena/sphyrw/cookie"
 )
-
-var ErrCantHijack = errors.New("Underlying RequestWriter has no Hijacking support")
 
 // In particular, this is necessary to ensure that if Sphyraena wants to
 // destroy an invalid, unauthenticated cookie, then user code later wants
@@ -40,7 +36,6 @@ var ErrCantHijack = errors.New("Underlying RequestWriter has no Hijacking suppor
 type SphyraenaResponseWriter struct {
 	outCookies       map[string]*cookie.OutCookie
 	underlyingWriter http.ResponseWriter
-	doneChan         chan struct{}
 	responseWritten  bool
 	finished         bool
 }
@@ -54,7 +49,6 @@ func NewSphyraenaResponseWriter(rw http.ResponseWriter) *SphyraenaResponseWriter
 	return &SphyraenaResponseWriter{
 		map[string]*cookie.OutCookie{},
 		rw,
-		nil,
 		false,
 		false,
 	}
@@ -65,21 +59,6 @@ func (srw *SphyraenaResponseWriter) Header() http.Header {
 		panic("Can't call Header on a Finished SphyraenaResponseWriter")
 	}
 	return srw.underlyingWriter.Header()
-}
-
-// Hijack exposes the hijacking functionality of the underlying response
-// writer, if any.
-//
-// FIXME: See if there's anything else Sphyraena itself needs to let go of here.
-func (srw *SphyraenaResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	rw := srw.underlyingWriter
-
-	hijacker, isHijacker := rw.(http.Hijacker)
-	if !isHijacker {
-		return nil, nil, ErrCantHijack
-	}
-
-	return hijacker.Hijack()
 }
 
 func (srw *SphyraenaResponseWriter) Write(b []byte) (int, error) {
@@ -124,12 +103,20 @@ func (srw *SphyraenaResponseWriter) writeResponse() {
 	srw.responseWritten = true
 }
 
-// SetDoneChan sets the channel that the SphyraenaResponseWriter will use
-// to indicate its done-ness to the given channel.
+// WriteJSON is a function for conveniently emitting an encoded JSON object
+// using encoding/json.
 //
-// FIXME: Where all is this used?
-func (srw *SphyraenaResponseWriter) SetDoneChan(done chan struct{}) {
-	srw.doneChan = done
+// This will panic if the type passed in can not be emitted via
+// encoding/json.
+func (srw *SphyraenaResponseWriter) WriteJSON(val interface{}) {
+	srw.Header().Set("Content-Type", "application/json")
+	encoder := json.NewEncoder(srw)
+	err := encoder.Encode(val)
+	if err != nil {
+		// since this is constant per type, rather than value-dependent, at
+		// least AFAIK, this should be OK.
+		panic("Can't use WriteJSON to write value: " + err.Error())
+	}
 }
 
 // Finish completes the request. If in a streaming context, this will
@@ -147,10 +134,6 @@ func (srw *SphyraenaResponseWriter) Finish() {
 
 	if !srw.responseWritten {
 		srw.writeResponse()
-	}
-
-	if srw.doneChan != nil {
-		srw.doneChan <- struct{}{}
 	}
 
 	srw.finished = true

@@ -2,11 +2,10 @@
 
 Package cookie represents and renders cookies.
 
-This package creates and renders cookie objects, and end-user use
-is possible, but it is generally intended for the average Sphyraena
-site that the framework manages the session cookie, and all other
-state is managed via the session. Securing cookie content is tricky at
-the best of times.
+While this is the documentation for the cookie objects, cookies are
+generally created through either the session (for authentication) or
+the context (for unauthenticated). Since that's probably going to prove
+pretty klunky, we'll see how that goes.
 
 The cookie package turns cookies into a default-deny system by making
 the most secure cookies the default, and requiring you to selectively back
@@ -22,10 +21,6 @@ By default, a cookie emitted by Sphyraena is:
   * Strictly standards-compliant (checked for conformance to the
     strictest reading of RFC 6265).
   * Path set to /.
-  * The SameSite flag will be set to Strict.
-
-As other security features are added to cookies, they will be added in by
-default here.
 
 In addition, this takes over cookie rendering and parsing duties from
 net/http. Rendering is taken over because net/http attempts to "fix up"
@@ -44,13 +39,13 @@ when types are cheap
 
 The OutCookie is configured via the "functional options" pattern:
 http://dave.cheney.net/2014/10/17/functional-options-for-friendly-apis
-The functionsg that either are func(*OutCookie) or return one are
+The functions that either are func(*InCookie) or return one are
 functional options.
 
 Cookie encryption is deliberately NOT supported, and will not be
 supported. It is too frequently misused and generally provides only the
 illusion of security. If you do not want a client to see a value, do not
-send it to them; stick it in the session.
+send it to them.
 
 The best current description of cookies is available from RFC 6265.
 http://tools.ietf.org/html/rfc6265 But most browsers accept spaces and
@@ -84,36 +79,6 @@ const (
 	unauthenticated = false
 )
 
-// Strict can be passed to the SameSite option to set the SameSite cookie
-// flag to Strict, which is the default.
-var Strict = CookieStrictness{0}
-
-// Lax can be passed to the SameSite option to set the SameSite cookie flag
-// to Lax.
-var Lax = CookieStrictness{1}
-
-// NoSameSiteSetting can be passed to the SameSite option to entirely
-// remove the SameSite setting from the cookie.
-var NoSameSiteSetting = CookieStrictness{2}
-
-type CookieStrictness struct {
-	strictness byte
-}
-
-func (cs CookieStrictness) render() string {
-	switch cs.strictness {
-	case 0:
-		return "SameSite=Strict"
-	case 1:
-		return "SameSite=Lax"
-	default:
-		return ""
-	}
-}
-
-// A Option modifies an OutCookien in the given manner.
-type Option func(*OutCookie) error
-
 var t abtime.AbstractTime = abtime.NewRealTime()
 
 type errCookieInvalid struct {
@@ -137,11 +102,10 @@ type OutCookie struct {
 	maxAge     time.Duration
 	expires    time.Time
 
-	path               string
-	domain             string
-	clientAccess       bool
-	insecure           bool
-	sameSiteStrictness CookieStrictness
+	path         string
+	domain       string
+	clientAccess bool
+	insecure     bool
 }
 
 // Name returns the name of the outcookie.
@@ -447,7 +411,7 @@ func isAuthed(s string) bool {
 //
 // This is a "pure function", so if you pass in only constant values, you
 // can be assured no error will come out.
-func NewOut(name, value string, authenticator secret.Authenticator, options ...Option) (*OutCookie, error) {
+func NewOut(name, value string, authenticator secret.Authenticator, options ...func(*OutCookie) error) (*OutCookie, error) {
 	return newcookie(true, name, value, authenticator, options...)
 }
 
@@ -464,11 +428,11 @@ func NewOut(name, value string, authenticator secret.Authenticator, options ...O
 // See https://hackerone.com/reports/14883 for an exciting unexpected
 // consequence of allowing commas in the value (when combined with other
 // things).
-func NewNonstandardOut(name, value string, authenticator secret.Authenticator, options ...Option) (*OutCookie, error) {
+func NewNonstandardOut(name, value string, authenticator secret.Authenticator, options ...func(*OutCookie) error) (*OutCookie, error) {
 	return newcookie(false, name, value, authenticator, options...)
 }
 
-func newcookie(strict bool, name, value string, authenticator secret.Authenticator, options ...Option) (*OutCookie, error) {
+func newcookie(strict bool, name, value string, authenticator secret.Authenticator, options ...func(*OutCookie) error) (*OutCookie, error) {
 	if name == "" {
 		return nil, &errCookieInvalid{name, "no name given"}
 	}
@@ -591,10 +555,6 @@ func (c *OutCookie) Render() (string, error) {
 	if !c.insecure {
 		chunks = append(chunks, "Secure")
 	}
-	sameSite := c.sameSiteStrictness.render()
-	if sameSite != "" {
-		chunks = append(chunks, sameSite)
-	}
 
 	return strings.Join(chunks, ";"), nil
 }
@@ -622,7 +582,7 @@ func Delete(c *OutCookie) error {
 // the intent), or if the resulting Expires calculation's year exceeds
 // 2038. This will presumably at some point be lifted, but it's still a bit
 // of a bad idea to send out cookies beyond that.
-func Duration(d time.Duration) Option {
+func Duration(d time.Duration) func(*OutCookie) error {
 	return func(c *OutCookie) error {
 		var reasonInvalid error
 		if d < 0 {
@@ -647,28 +607,15 @@ func Duration(d time.Duration) Option {
 	}
 }
 
-// Session is an Option that turns this into a session cookie, which is
-// accomplished by not sending any expires time.
+// Session turns this into a session cookie, which is accomplished by not
+// sending any expires time.
 func Session(c *OutCookie) error {
 	c.hasExpires = false
 	c.maxAge = time.Duration(0)
 	return nil
 }
 
-// SameSite will configure the SameSite value on the cookie. As I write
-// this this is only in Chrome, but I expect it is very likely that it will
-// go out to other browsers.
-//
-// See: https://tools.ietf.org/html/draft-west-first-party-cookies-07
-func SameSite(cs CookieStrictness) Option {
-	return func(c *OutCookie) error {
-		c.sameSiteStrictness = cs
-		return nil
-	}
-}
-
-// Forever is an Option that labels the cookie as the closest to "forever"
-// you can get.
+// Forever labels the cookie as the closest to "forever" you can get.
 func Forever(c *OutCookie) error {
 	c.hasExpires = true
 	c.expires = time.Unix(2147483647, 0)
@@ -692,7 +639,7 @@ func Forever(c *OutCookie) error {
 //
 // An error will be returned if the path does not conform to RFC6265's
 // specification for what a path can be.
-func Path(path string) Option {
+func Path(path string) func(*OutCookie) error {
 	return func(c *OutCookie) error {
 		for _, b := range []byte(path) {
 			if b < 32 || b >= 128 || b == '"' || b == ';' || b == '\\' {
@@ -722,7 +669,7 @@ func Path(path string) Option {
 // working as designed.
 //
 // Setting the empty string will result in no domain value being sent out.
-func Domain(domain string) Option {
+func Domain(domain string) func(*OutCookie) error {
 	return func(c *OutCookie) error {
 		if !isCookieDomainName(domain) {
 			return &errCookieInvalid{c.name, "domain is illegal"}
@@ -785,8 +732,7 @@ func isCookieDomainName(s string) bool {
 	return ok
 }
 
-// ClientCanRead is an Option that allows the client's Javascript to see
-// the cookie.
+// ClientCanRead allows the client's Javascript to see the cookie.
 //
 // This sends the cookie without the HTTPOnly flag, renamed to make it more
 // clear what that means. This also turns off authentication, because the
@@ -797,8 +743,7 @@ func ClientCanRead(c *OutCookie) error {
 	return nil
 }
 
-// Insecure is an Option that allows the cookie to be sent over HTTP, in
-// addition to HTTPS.
+// Insecure allows the cookie to be sent over HTTP, in addition to HTTPS.
 //
 // This is the "secure" flag on a cookie, with a method name designed to
 // make security review easier.

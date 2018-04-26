@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/thejerf/abtime"
 	"github.com/thejerf/sphyraena/identity"
 	"github.com/thejerf/sphyraena/secret"
@@ -92,12 +93,14 @@ func (rss *RAMSessionServer) GetSession(sk SessionID) (Session, error) {
 }
 
 func (rss *RAMSessionServer) GetAuthenticationUnwrapper(id string) (secret.AuthenticationUnwrapper, error) {
-	fmt.Println("In teh getauthentication wrapper")
 	return rss.GetSession(SessionID(id))
 }
 
 func (rss *RAMSessionServer) NewSession(identity *identity.Identity) (Session, error) {
 	now := rss.Now()
+
+	fmt.Println("\n\nMaking new session\n\n")
+	spew.Dump(identity)
 
 	session := &RAMSession{
 		ExpirationTime: now.Add(rss.Timeout),

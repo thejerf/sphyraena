@@ -1,12 +1,13 @@
 package router
 
 import (
-	"fmt"
-	"runtime/debug"
-
 	"github.com/thejerf/sphyraena/context"
 	"github.com/thejerf/sphyraena/sphyrw"
 )
+
+type PanicInfo struct {
+	panicreason interface{}
+}
 
 // runInGoroutine contains all the code to run an HTTP handler in its own
 // goroutine. This allows that goroutine to indicate to the goroutine
@@ -16,36 +17,22 @@ func (sr *SphyraenaRouter) runInGoroutine(handler context.Handler, rw *sphyrw.Sp
 	// let's do a basic first-cut pass of simply running this in a
 	// goroutine before we get fancy
 
-	done := make(chan struct{})
-	panicChan := make(chan string)
-	rw.SetDoneChan(done)
+	done := make(chan *PanicInfo)
 	ctx.RunningAsGoroutine = true
 
-	// FIXME: Marshalling the panic over to the core routine isn't
-	// necessary, and isn't even necessarily advisable; we should instead
-	// copy the handling out of net/http
-
-	// FIXME: Furthermore, we may just be better off hijacking the
-	// connection ourselves, which could allow us to remove this entire
-	// extra goroutine.
 	go func() {
 		defer func() {
-			r := recover()
-			if r != nil {
-				stack := debug.Stack()
-				p := fmt.Sprintf("Panic in streaming handler: %v\n\nStack:\n%s\n",
-					r, string(stack))
-				panicChan <- p
+			// FIXME: We'll have to manually snapshot the stack trace here
+			if r := recover(); r != nil {
+				done <- &PanicInfo{r}
 			}
 		}()
 		handler.ServeStreaming(rw, ctx)
-		done <- struct{}{}
+		done <- nil
 	}()
 
-	select {
-	case <-done:
-		return
-	case p := <-panicChan:
-		panic(p)
+	panicReason := <-done
+	if panicReason != nil {
+		panic(panicReason.panicreason)
 	}
 }

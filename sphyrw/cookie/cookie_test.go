@@ -15,7 +15,7 @@ import (
 type successfulTest struct {
 	name   string
 	value  string
-	opts   []Option
+	opts   []func(*OutCookie) error
 	result string
 }
 
@@ -36,19 +36,17 @@ func TestSuccessfulRendering(t *testing.T) {
 	sessionCookie := "session=" + string(sessionID)
 
 	tests := []successfulTest{
-		{"c", "v", []Option{}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure;SameSite=Strict"},
-		{"c", "v", []Option{Delete}, "c=;Expires=Fri, 02-Jan-1970 00:00:01 GMT;Path=/;HttpOnly;Secure;SameSite=Strict"},
+		{"c", "v", []func(*OutCookie) error{}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure"},
+		{"c", "v", []func(*OutCookie) error{Delete}, "c=;Expires=Fri, 02-Jan-1970 00:00:01 GMT;Path=/;HttpOnly;Secure"},
 		// ensure order works
-		{"c", "v", []Option{Duration(time.Hour), Session},
-			"c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure;SameSite=Strict"},
-		{"c", "v", []Option{Duration(time.Hour)},
-			"c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Max-Age=3600;Expires=Fri, 14 Jul 2017 03:40:00 GMT;Path=/;HttpOnly;Secure;SameSite=Strict"},
-		{"c", "v", []Option{Path("/moo/")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/moo/;HttpOnly;Secure;SameSite=Strict"},
-		{"c", "v", []Option{Domain("fo-o2.com")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;Domain=fo-o2.com;HttpOnly;Secure;SameSite=Strict"},
-		{"c", "v", []Option{Domain(".foo.com")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;Domain=.foo.com;HttpOnly;Secure;SameSite=Strict"},
-		{"c", "v", []Option{ClientCanRead}, "c=v;Path=/;Secure;SameSite=Strict"},
-		{"c", "v", []Option{SameSite(Lax)}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure;SameSite=Lax"},
-		{"c", "v", []Option{SameSite(NoSameSiteSetting)}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure"},
+		{"c", "v", []func(*OutCookie) error{Duration(time.Hour), Session},
+			"c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;HttpOnly;Secure"},
+		{"c", "v", []func(*OutCookie) error{Duration(time.Hour)},
+			"c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Max-Age=3600;Expires=Fri, 14 Jul 2017 03:40:00 GMT;Path=/;HttpOnly;Secure"},
+		{"c", "v", []func(*OutCookie) error{Path("/moo/")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/moo/;HttpOnly;Secure"},
+		{"c", "v", []func(*OutCookie) error{Domain("fo-o2.com")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;Domain=fo-o2.com;HttpOnly;Secure"},
+		{"c", "v", []func(*OutCookie) error{Domain(".foo.com")}, "c=v__!sauthed!_TmVPtWyCByrJUs%HCJ5OjyPUH9UlJA5r%u1O2$nLQNg;Path=/;Domain=.foo.com;HttpOnly;Secure"},
+		{"c", "v", []func(*OutCookie) error{ClientCanRead}, "c=v;Path=/;Secure"},
 	}
 
 	for _, test := range tests {
@@ -98,7 +96,7 @@ func TestBadAuthenticatorRendering(t *testing.T) {
 func TestNonstandardOut(t *testing.T) {
 	c, _ := NewNonstandardOut("cookie", "value is,", nil)
 	val, _ := c.Render()
-	if val != `cookie="value is,";Path=/;HttpOnly;Secure;SameSite=Strict` {
+	if val != `cookie="value is,";Path=/;HttpOnly;Secure` {
 		t.Fatal("nonstandard cookie didn't work", val)
 	}
 	_, err := NewNonstandardOut("cookie", "value;", nil)
@@ -110,32 +108,32 @@ func TestNonstandardOut(t *testing.T) {
 type testIllegal struct {
 	name  string
 	value string
-	opts  []Option
+	opts  []func(*OutCookie) error
 }
 
 // This function verifies that illegal settings correctly fail.
 func TestIllegalCookies(t *testing.T) {
 	tests := []testIllegal{
-		{" space", "v", []Option{}},
-		{"\ttab", "v", []Option{}},
-		{"n", " strict mode space", []Option{}},
-		{"", "", []Option{}},
-		{"", "\tmoo", []Option{}},
-		{"n", "v", []Option{Duration(time.Duration(-2))}},
-		{"n", "v", []Option{Duration(time.Millisecond)}},
-		{"n", "v", []Option{Duration(time.Hour * 24 * 365 * 24)}},
-		{"c", "\x10", []Option{}},
-		{"c", "v", []Option{Path("/bad;path/")}},
+		{" space", "v", []func(*OutCookie) error{}},
+		{"\ttab", "v", []func(*OutCookie) error{}},
+		{"n", " strict mode space", []func(*OutCookie) error{}},
+		{"", "", []func(*OutCookie) error{}},
+		{"", "\tmoo", []func(*OutCookie) error{}},
+		{"n", "v", []func(*OutCookie) error{Duration(time.Duration(-2))}},
+		{"n", "v", []func(*OutCookie) error{Duration(time.Millisecond)}},
+		{"n", "v", []func(*OutCookie) error{Duration(time.Hour * 24 * 365 * 24)}},
+		{"c", "\x10", []func(*OutCookie) error{}},
+		{"c", "v", []func(*OutCookie) error{Path("/bad;path/")}},
 
 		// lots of ways for domain to be illegal, aren't there?
-		{"c", "v", []Option{Domain("")}},
-		{"c", "v", []Option{Domain("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")}},
-		{"c", "v", []Option{Domain("foo-.com")}},
-		{"c", "v", []Option{Domain("foo..com")}},
-		{"c", "v", []Option{Domain("foo.-com")}},
-		{"c", "v", []Option{Domain("foo.com-")}},
-		{"c", "v", []Option{Domain("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com")}},
-		{"c", "v", []Option{Domain("foo\t.com")}},
+		{"c", "v", []func(*OutCookie) error{Domain("")}},
+		{"c", "v", []func(*OutCookie) error{Domain("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")}},
+		{"c", "v", []func(*OutCookie) error{Domain("foo-.com")}},
+		{"c", "v", []func(*OutCookie) error{Domain("foo..com")}},
+		{"c", "v", []func(*OutCookie) error{Domain("foo.-com")}},
+		{"c", "v", []func(*OutCookie) error{Domain("foo.com-")}},
+		{"c", "v", []func(*OutCookie) error{Domain("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com")}},
+		{"c", "v", []func(*OutCookie) error{Domain("foo\t.com")}},
 	}
 
 	for idx, test := range tests {
@@ -339,5 +337,5 @@ func ExampleNewOut() {
 	val, _ := cookie.Render()
 	fmt.Println(val)
 
-	// Output: this_cookie_is_so_emo=true;Expires=Tue, 19 Jan 2038 03:14:07 GMT;Path=/;Domain=despair.com;HttpOnly;SameSite=Strict
+	// Output: this_cookie_is_so_emo=true;Expires=Tue, 19 Jan 2038 03:14:07 GMT;Path=/;Domain=despair.com;HttpOnly
 }

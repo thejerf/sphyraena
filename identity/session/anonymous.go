@@ -8,7 +8,7 @@ import (
 	"github.com/thejerf/sphyraena/strest"
 )
 
-var anonymousIdentity *identity.Identity = nil
+var anonymousIdentity *identity.Identity = identity.AnonymousIdentity
 
 // MustSetAnonymousIdentity sets the *identity.Identity that will be
 // returned by the Identity method of the AnonymousSession. The identity
@@ -20,7 +20,7 @@ func MustSetAnonymousIdentity(i *identity.Identity) {
 	if i == nil {
 		panic("Can't set anonymous identity to nil")
 	}
-	if anonymousIdentity != nil {
+	if anonymousIdentity != identity.AnonymousIdentity {
 		panic("Can't set anonymous identity once it has already been set")
 	}
 
