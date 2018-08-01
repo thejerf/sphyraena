@@ -245,3 +245,7 @@ func (s *Secret) UnmarshalText(in []byte) error {
 	s.secret = stupidSimpleObfuscate([]byte(decoded))
 	return nil
 }
+
+func (s *Secret) IsZero() bool {
+	return len(s.secret) == 0
+}

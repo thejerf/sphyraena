@@ -60,22 +60,30 @@ type Session interface {
 	// This returns a new stream that can be identified by ID, or an error
 	// if no stream can be created (perhaps because this is for some reason
 	// an impoverished session that lacks that capability).
+	//
+	// FIXME: In general, sessions can't provide GetStream. In which case,
+	// why are they providing the streams at all? The answer is probably
+	// that we need a distinction between sessions, stream masters, and
+	// authentication that this mixes in too freely right now.
 	NewStream() (*strest.Stream, error)
 
 	// This retrieves a stream by the given signed key. If it is from the
 	// session, the stream will be returned. (FIXME: or created?)
-	GetStream([]byte) (*strest.Stream, error)
+	// This doesn't seem to be possible with all streams, because for
+	// something like a disk-backed session, the stream could well be in
+	// another OS process.
+	// GetStream([]byte) (*strest.Stream, error)
 
 	// Returns active streams.
 	//
 	// Note this is inherently racy; new streams may be created at any
 	// moment and you may be unable to retrieve any given stream that is
 	// returned. Still, this can be useful information. This may return nil.
-	ActiveStreams() []strest.StreamID
+	// ActiveStreams() []strest.StreamID
 
 	// The session must contain something that can be used to authenticate
 	// and validate that authentication. This is usually done by composing
-	// in a secret.AuthenticatingSecret value.
+	// in a secret.Secret value, but you can also forward these interfaces.
 	secret.Authenticator
 	secret.AuthenticationUnwrapper
 }

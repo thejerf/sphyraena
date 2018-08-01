@@ -9,14 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/thejerf/abtime"
 	"github.com/thejerf/sphyraena/identity"
 	"github.com/thejerf/sphyraena/secret"
 	"github.com/thejerf/sphyraena/strest"
 )
 
-var ss SessionServer = &RAMSessionServer{}
+var _ SessionServer = &RAMSessionServer{}
 
 // This file defines a session server that functions entirely in RAM.
 //
@@ -98,9 +97,6 @@ func (rss *RAMSessionServer) GetAuthenticationUnwrapper(id string) (secret.Authe
 
 func (rss *RAMSessionServer) NewSession(identity *identity.Identity) (Session, error) {
 	now := rss.Now()
-
-	fmt.Println("\n\nMaking new session\n\n")
-	spew.Dump(identity)
 
 	session := &RAMSession{
 		ExpirationTime: now.Add(rss.Timeout),
