@@ -20,9 +20,14 @@ import (
 // CookieAuth is a router clause that turns on the cookie-based
 // authentication. This allows you to not incur the costs of authentication
 // on requests that don't need it.
+//
+// Options can be used to modify the cookie's options on the way out. This
+// would probably be used primarily to add cookie.Insecure to the options
+// to permit use on non-HTTPS environments.
 type CookieAuth struct {
 	authBlock             *router.RouteBlock
 	passwordAuthenticator enticate.PasswordAuthenticator
+	Options               []cookie.Option
 }
 
 type justAuthenticated struct{}
@@ -58,18 +63,26 @@ func IsJustAuthenticated(c *context.Context) bool {
 // user a form. To use it with an independent REST request that will auth
 // the user, you can pass in something that just statically returns some
 // form of permission denied/404/whatever.
-func NewCookieAuth(rb *router.RouteBlock, pa enticate.PasswordAuthenticator) (*CookieAuth, error) {
+func NewCookieAuth(
+	rb *router.RouteBlock,
+	pa enticate.PasswordAuthenticator,
+	options ...cookie.Option,
+) (*CookieAuth, error) {
 	if rb == nil {
 		return nil, errors.New("No router block passed in for cookie auth")
 	}
 	if pa == nil {
 		return nil, errors.New("no password authenticator passed in for cookie auth")
 	}
-	return &CookieAuth{rb, pa}, nil
+	return &CookieAuth{rb, pa, options}, nil
 }
 
 // FIXME: CookieAdder belong here or somewhere else?
-func PasswordAuthenticate(pa enticate.PasswordAuthenticator, r *context.Context) (*cookie.OutCookie, error) {
+func PasswordAuthenticate(
+	pa enticate.PasswordAuthenticator,
+	r *context.Context,
+	options ...cookie.Option,
+) (*cookie.OutCookie, error) {
 	// FIXME: CSRF form protection
 	// FIXME: Which ideally shouldn't require a call here and/or can't be skipped
 	r.ParseForm()
@@ -95,7 +108,12 @@ func PasswordAuthenticate(pa enticate.PasswordAuthenticator, r *context.Context)
 	markJustAuthenticated(r)
 	hasID, sessionID := session.SessionID()
 	if hasID {
-		cookie, err := cookie.NewOut("session", string(sessionID), r.Session())
+		cookie, err := cookie.NewOut(
+			"session",
+			string(sessionID),
+			r.Session(),
+			options...,
+		)
 		if err != nil {
 			return nil, err
 		}

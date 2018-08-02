@@ -21,11 +21,16 @@ simply a SphyraenaResponseWriter cast into an http.ResponseWriter.
 package sphyrw
 
 import (
+	"bufio"
 	"encoding/json"
+	"errors"
+	"net"
 	"net/http"
 
 	"github.com/thejerf/sphyraena/sphyrw/cookie"
 )
+
+var ErrCantHijack = errors.New("Underlying RequestWriter has no Hijacking support")
 
 // In particular, this is necessary to ensure that if Sphyraena wants to
 // destroy an invalid, unauthenticated cookie, then user code later wants
@@ -36,6 +41,7 @@ import (
 type SphyraenaResponseWriter struct {
 	outCookies       map[string]*cookie.OutCookie
 	underlyingWriter http.ResponseWriter
+	doneChan         chan struct{}
 	responseWritten  bool
 	finished         bool
 }
@@ -49,6 +55,7 @@ func NewSphyraenaResponseWriter(rw http.ResponseWriter) *SphyraenaResponseWriter
 	return &SphyraenaResponseWriter{
 		map[string]*cookie.OutCookie{},
 		rw,
+		nil,
 		false,
 		false,
 	}
@@ -59,6 +66,21 @@ func (srw *SphyraenaResponseWriter) Header() http.Header {
 		panic("Can't call Header on a Finished SphyraenaResponseWriter")
 	}
 	return srw.underlyingWriter.Header()
+}
+
+// Hijack exposes the hijacking functionality of the underlying response
+// writer, if any.
+//
+// FIXME: See if there's anything else Sphyraena itself needs to let go of here.
+func (srw *SphyraenaResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	rw := srw.underlyingWriter
+
+	hijacker, isHijacker := rw.(http.Hijacker)
+	if !isHijacker {
+		return nil, nil, ErrCantHijack
+	}
+
+	return hijacker.Hijack()
 }
 
 func (srw *SphyraenaResponseWriter) Write(b []byte) (int, error) {
