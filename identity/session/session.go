@@ -88,6 +88,8 @@ type Session interface {
 	secret.AuthenticationUnwrapper
 }
 
+// FIXME: this should have a slot for the underlying problem
+
 var ErrSessionNotFound = errors.New("session not found")
 
 // A SessionServer takes SessionIDs, and returns Sessions, with or without

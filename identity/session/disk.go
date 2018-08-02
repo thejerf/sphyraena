@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/thejerf/abtime"
 	"github.com/thejerf/sphyraena/identity"
+	"github.com/thejerf/sphyraena/identity/session/internal"
 	"github.com/thejerf/sphyraena/secret"
 	"github.com/thejerf/sphyraena/strest"
 )
@@ -48,20 +48,10 @@ type DirSessionSettings struct {
 	abtime.AbstractTime
 }
 
-// A MarshalFileSession is used to marshal the given file session. This
-// should be in internal.
-type MarshalFileSession struct {
-	ExpirationTime time.Time          `json:"expiration_time"`
-	SessionID      SessionID          `json:"session_id"`
-	Identity       *identity.Identity `json:"identity"`
-
-	Secret *secret.Secret `json:"secret"`
-}
-
 type fileSession struct {
-	expirationTime time.Time
-	sessionID      SessionID
-	identity       *identity.Identity
+	lastRefreshTime time.Time
+	sessionID       SessionID
+	identity        *identity.Identity
 	*secret.Secret
 
 	dss *DirSessionServer
@@ -71,7 +61,8 @@ type fileSession struct {
 
 // NewDirSessionServer returns a new disk-based session server, using the
 // given settings. Once the settings have been passed to this object you
-// must not modify them.
+// must not modify them. The sig and secretGenerator arguments must not be
+// nil or this will panic.
 func NewDiskServer(
 	directory string,
 	sig *SessionIDGenerator,
@@ -81,6 +72,14 @@ func NewDiskServer(
 	if settings == nil {
 		settings = &DirSessionSettings{}
 	}
+
+	if sig == nil {
+		panic("SessionIDGenerator required")
+	}
+	if secretGenerator == nil {
+		panic("secret.Generator required")
+	}
+
 	ds := &DirSessionServer{
 		directory:          directory,
 		sessionIDGenerator: sig,
@@ -111,21 +110,28 @@ var encoder = strings.NewReplacer(
 	"!", "!9",
 )
 
-func (dss *DirSessionServer) sessionToFile(sID SessionID) string {
-	return filepath.Join(dss.directory, encoder.Replace(string(sID)))
+func (dss *DirSessionServer) sessionToFile(sID string) string {
+	return filepath.Join(dss.directory, encoder.Replace(sID))
 }
 
 func (dss *DirSessionServer) GetSession(sID SessionID) (Session, error) {
-	filename := dss.sessionToFile(sID)
+	filename := dss.sessionToFile(string(sID))
 
-	var f io.Reader
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, ErrSessionNotFound
 	}
-	f = io.TeeReader(f, os.Stderr)
+	stat, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	lastRefreshTime := stat.ModTime().UTC()
+	now := dss.Now()
+	if lastRefreshTime.Add(dss.Timeout).Before(now) {
+		return nil, ErrSessionNotFound
+	}
 
-	fs := &MarshalFileSession{
+	fs := &internal.MarshalFileSession{
 		Identity: &identity.Identity{},
 	}
 
@@ -135,13 +141,10 @@ func (dss *DirSessionServer) GetSession(sID SessionID) (Session, error) {
 		return nil, err
 	}
 
-	if fs.ExpirationTime.IsZero() {
-		return nil, errors.New("file session:  missing expiration")
-	}
-	if fs.SessionID == SessionID("") {
+	if fs.SessionID == "" {
 		return nil, errors.New("file session: session ID missing")
 	}
-	if fs.SessionID != sID {
+	if fs.SessionID != string(sID) {
 		// The only way I can think of for this to happen is case mismatch
 		// on a case-insensitive file system. I don't think it's very
 		// likely. But if it did happen, it would mean that this user is
@@ -157,15 +160,9 @@ func (dss *DirSessionServer) GetSession(sID SessionID) (Session, error) {
 		return nil, errors.New("file session: missing secret")
 	}
 
-	// FIXME: Need to add time to the expiration and record that.
-	// FIXME: Get excessively clever and use the metadata of the file
-	// itself for expirations, so the process of updating the file is
-	// simply touching it, allowing us to avoid race conditions on the file
-	// entirely?
-
 	return &fileSession{
-		fs.ExpirationTime,
-		fs.SessionID,
+		lastRefreshTime,
+		SessionID(fs.SessionID),
 		fs.Identity,
 		fs.Secret,
 		dss,
@@ -173,13 +170,10 @@ func (dss *DirSessionServer) GetSession(sID SessionID) (Session, error) {
 }
 
 func (dss *DirSessionServer) NewSession(id *identity.Identity) (Session, error) {
-	now := dss.Now()
-
-	fs := &MarshalFileSession{
-		ExpirationTime: now.Add(dss.Timeout),
-		SessionID:      dss.sessionIDGenerator.Get(),
-		Secret:         dss.secretGenerator.Get(),
-		Identity:       id,
+	fs := &internal.MarshalFileSession{
+		SessionID: string(dss.sessionIDGenerator.Get()),
+		Secret:    dss.secretGenerator.Get(),
+		Identity:  id,
 	}
 	filename := dss.sessionToFile(fs.SessionID)
 
@@ -196,8 +190,8 @@ func (dss *DirSessionServer) NewSession(id *identity.Identity) (Session, error) 
 	_ = f.Close()
 
 	return &fileSession{
-		fs.ExpirationTime,
-		fs.SessionID,
+		dss.AbstractTime.Now().UTC(),
+		SessionID(fs.SessionID),
 		fs.Identity,
 		fs.Secret,
 		dss,
@@ -211,14 +205,11 @@ func (dss *DirSessionServer) GetAuthenticationUnwrapper(id string) (secret.Authe
 func (fs *fileSession) Expired() bool {
 	now := fs.dss.Now()
 
-	return now.After(fs.expirationTime)
+	return fs.lastRefreshTime.Add(fs.dss.Timeout).Before(now)
 }
 
 func (fs *fileSession) Expire() {
-	os.Remove(fs.dss.sessionToFile(fs.sessionID))
-	// FIXME: Need to be able to set logging to catch this here
-	now := fs.dss.Now()
-	fs.expirationTime = now.Add(-time.Second)
+	os.Remove(fs.dss.sessionToFile(string(fs.sessionID)))
 }
 
 func (fs *fileSession) SessionID() (bool, SessionID) {
