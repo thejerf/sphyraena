@@ -27,28 +27,28 @@ func getDiskSession(t *testing.T) (*FilesystemServer, func()) {
 
 	manTime := abtime.NewManual()
 
-	dss := NewFilesystemServer(dir, idGen, secretGen,
+	fss := NewFilesystemServer(dir, idGen, secretGen,
 		&FilesystemServerSettings{
 			AbstractTime: manTime,
 			Timeout:      time.Hour,
 		})
 
-	return dss, func() {
-		os.RemoveAll(dir)
+	return fss, func() {
+		// os.RemoveAll(dir)
 		idGen.Stop()
 		secretGen.Stop()
 	}
 }
 
 func TestDirSessions(t *testing.T) {
-	dss, deffunc := getDiskSession(t)
+	fss, deffunc := getDiskSession(t)
 	defer deffunc()
-	manTime := dss.AbstractTime.(*abtime.ManualTime)
+	manTime := fss.AbstractTime.(*abtime.ManualTime)
 
 	id := &identity.Identity{enticate.GetNamedUser("test")}
 
 	// Get a session for our named user tmp
-	session, err := dss.NewSession(id)
+	session, err := fss.NewSession(id)
 	if err != nil {
 		t.Fatalf("Could not get user session: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestDirSessions(t *testing.T) {
 	if !haveSession {
 		t.Fatal("disk sessions do not have an ID?")
 	}
-	session2, err := dss.GetSession(sessionID)
+	session2, err := fss.GetSession(sessionID)
 	if err != nil {
 		t.Fatalf("Couldn't get an existing session: %v", err)
 	}
@@ -91,28 +91,71 @@ func TestDirSessions(t *testing.T) {
 		t.Fatal("Loaded sessions do not expire after time advances")
 	}
 
-	_, err = dss.GetSession(sessionID)
+	_, err = fss.GetSession(sessionID)
 	if err == nil {
 		t.Fatal("Can load expired sessions!")
 	}
 }
 
 func TestExpiringSession(t *testing.T) {
-	dss, deffunc := getDiskSession(t)
+	fss, deffunc := getDiskSession(t)
 	defer deffunc()
 
 	id := &identity.Identity{enticate.GetNamedUser("test")}
 
-	session, err := dss.NewSession(id)
+	session, err := fss.NewSession(id)
 	if err != nil {
-		t.Fatalf("Could not get user session: %v", session)
+		t.Fatalf("Could not get user session: %v", err)
 	}
 
 	session.Expire()
 
 	_, sessionID := session.SessionID()
-	session, err = dss.GetSession(sessionID)
+	session, err = fss.GetSession(sessionID)
 	if session != nil || err == nil {
 		t.Fatal("Can load expired sessions")
+	}
+}
+
+func TestDiskCleaner(t *testing.T) {
+	fss, deffunc := getDiskSession(t)
+	defer deffunc()
+
+	go fss.Serve()
+	defer fss.Stop()
+
+	manTime := fss.AbstractTime.(*abtime.ManualTime)
+
+	id := &identity.Identity{enticate.GetNamedUser("test")}
+
+	session, err := fss.NewSession(id)
+	if err != nil {
+		t.Fatalf("Could not get user session: %v", err)
+	}
+
+	_, sessionID := session.SessionID()
+	sessionFileName := fss.sessionToFile(string(sessionID))
+
+	_, err = os.Stat(sessionFileName)
+	if err != nil {
+		t.Fatalf("Couldn't stat file: %v", err)
+	}
+
+	// trigger the scanner, ensure the files are still there
+	manTime.Trigger(filesystemServerTicker)
+	fss.sync <- struct{}{}
+
+	_, err = os.Stat(sessionFileName)
+	if err != nil {
+		t.Fatalf("Scanner removes non-exipired sessions")
+	}
+
+	manTime.Advance(2 * time.Hour)
+	manTime.Trigger(filesystemServerTicker)
+	fss.sync <- struct{}{}
+
+	_, err = os.Stat(sessionFileName)
+	if err == nil {
+		t.Fatal("File was not deleted when it was expired")
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/thejerf/abtime"
@@ -16,6 +15,10 @@ import (
 	"github.com/thejerf/sphyraena/identity/session/internal"
 	"github.com/thejerf/sphyraena/secret"
 	"github.com/thejerf/sphyraena/strest"
+)
+
+const (
+	filesystemServerTicker = 1
 )
 
 // This file defines a session server that functions on disk.
@@ -33,14 +36,21 @@ import (
 // While this obviously has scale limits, this is intended to be suitable
 // for sufficiently small deployments, such as internal tools. You will end
 // up with one small file on the disk per user who can be logged in.
+//
+// A FilesystemServer is also a suture.Service. The service will scan the
+// directory every hour and remove any expired files. It expects that these
+// are sessions. Should you stick anything else in that directory, expect
+// it to be purged.
+//
+// It is safe to not use the service, but the files will stack up.
 type FilesystemServer struct {
 	directory          string
 	sessionIDGenerator *SessionIDGenerator
 	secretGenerator    *secret.Generator
 	*FilesystemServerSettings
 
-	// synchronize all access through this, to simplify things.
-	lock sync.Mutex
+	stopScanExpired chan struct{}
+	sync            chan struct{} // used in testing
 }
 
 type FilesystemServerSettings struct {
@@ -80,10 +90,12 @@ func NewFilesystemServer(
 	}
 
 	ds := &FilesystemServer{
-		directory:                directory,
+		directory:                filepath.Clean(directory),
 		sessionIDGenerator:       sig,
 		secretGenerator:          secretGenerator,
 		FilesystemServerSettings: settings,
+		stopScanExpired:          make(chan struct{}),
+		sync:                     make(chan struct{}),
 	}
 	if settings.Timeout == 0 {
 		settings.Timeout = time.Hour
@@ -92,6 +104,48 @@ func NewFilesystemServer(
 		settings.AbstractTime = abtime.NewRealTime()
 	}
 	return ds
+}
+
+// Serve implements the suture.Service interface, and scans the directory
+// every hour for expired files.
+func (fss *FilesystemServer) Serve() {
+	everyHour := fss.NewTicker(time.Hour, filesystemServerTicker)
+
+	for {
+		select {
+		case _, _ = <-fss.stopScanExpired:
+			return
+
+		case <-everyHour.Channel():
+			now := fss.Now()
+
+			// FIXME: logging
+			_ = filepath.Walk(fss.directory, func(
+				path string,
+				info os.FileInfo,
+				err error,
+			) error {
+				if path == fss.directory {
+					// don't remove the root dir, of course
+					return nil
+				}
+
+				if info.ModTime().Add(fss.Timeout).Before(now) {
+					// FIXME: log
+					_ = os.Remove(path)
+				}
+
+				return nil
+			})
+
+		case <-fss.sync:
+			// do nothing on purpose; this synchronizes so we can test
+		}
+	}
+}
+
+func (fss *FilesystemServer) Stop() {
+	close(fss.stopScanExpired)
 }
 
 // this is a slightly paranoid file name replacer, to ensure that our
