@@ -28,22 +28,22 @@ import (
 // per user in the directory, and at the moment, nothing clears out expired
 // files.
 
-// A DirSessionServer serves out FileSessions.
+// A FilesystemServer serves out FileSessions.
 //
 // While this obviously has scale limits, this is intended to be suitable
 // for sufficiently small deployments, such as internal tools. You will end
 // up with one small file on the disk per user who can be logged in.
-type DirSessionServer struct {
+type FilesystemServer struct {
 	directory          string
 	sessionIDGenerator *SessionIDGenerator
 	secretGenerator    *secret.Generator
-	*DirSessionSettings
+	*FilesystemServerSettings
 
 	// synchronize all access through this, to simplify things.
 	lock sync.Mutex
 }
 
-type DirSessionSettings struct {
+type FilesystemServerSettings struct {
 	Timeout time.Duration
 	abtime.AbstractTime
 }
@@ -54,7 +54,7 @@ type fileSession struct {
 	identity        *identity.Identity
 	*secret.Secret
 
-	dss *DirSessionServer
+	fss *FilesystemServer
 }
 
 // FIXME: add some stuff to walk through sessions and expire them off the disk
@@ -63,14 +63,13 @@ type fileSession struct {
 // given settings. Once the settings have been passed to this object you
 // must not modify them. The sig and secretGenerator arguments must not be
 // nil or this will panic.
-func NewDiskServer(
+func NewFilesystemServer(
 	directory string,
 	sig *SessionIDGenerator,
 	secretGenerator *secret.Generator,
-	settings *DirSessionSettings,
-) *DirSessionServer {
+	settings *FilesystemServerSettings) *FilesystemServer {
 	if settings == nil {
-		settings = &DirSessionSettings{}
+		settings = &FilesystemServerSettings{}
 	}
 
 	if sig == nil {
@@ -80,11 +79,11 @@ func NewDiskServer(
 		panic("secret.Generator required")
 	}
 
-	ds := &DirSessionServer{
-		directory:          directory,
-		sessionIDGenerator: sig,
-		secretGenerator:    secretGenerator,
-		DirSessionSettings: settings,
+	ds := &FilesystemServer{
+		directory:                directory,
+		sessionIDGenerator:       sig,
+		secretGenerator:          secretGenerator,
+		FilesystemServerSettings: settings,
 	}
 	if settings.Timeout == 0 {
 		settings.Timeout = time.Hour
@@ -110,12 +109,12 @@ var encoder = strings.NewReplacer(
 	"!", "!9",
 )
 
-func (dss *DirSessionServer) sessionToFile(sID string) string {
-	return filepath.Join(dss.directory, encoder.Replace(sID))
+func (fss *FilesystemServer) sessionToFile(sID string) string {
+	return filepath.Join(fss.directory, encoder.Replace(sID))
 }
 
-func (dss *DirSessionServer) GetSession(sID SessionID) (Session, error) {
-	filename := dss.sessionToFile(string(sID))
+func (fss *FilesystemServer) GetSession(sID SessionID) (Session, error) {
+	filename := fss.sessionToFile(string(sID))
 
 	f, err := os.Open(filename)
 	if err != nil {
@@ -126,8 +125,8 @@ func (dss *DirSessionServer) GetSession(sID SessionID) (Session, error) {
 		return nil, err
 	}
 	lastRefreshTime := stat.ModTime().UTC()
-	now := dss.Now()
-	if lastRefreshTime.Add(dss.Timeout).Before(now) {
+	now := fss.Now()
+	if lastRefreshTime.Add(fss.Timeout).Before(now) {
 		return nil, ErrSessionNotFound
 	}
 
@@ -165,17 +164,17 @@ func (dss *DirSessionServer) GetSession(sID SessionID) (Session, error) {
 		SessionID(fs.SessionID),
 		fs.Identity,
 		fs.Secret,
-		dss,
+		fss,
 	}, nil
 }
 
-func (dss *DirSessionServer) NewSession(id *identity.Identity) (Session, error) {
+func (fss *FilesystemServer) NewSession(id *identity.Identity) (Session, error) {
 	fs := &internal.MarshalFileSession{
-		SessionID: string(dss.sessionIDGenerator.Get()),
-		Secret:    dss.secretGenerator.Get(),
+		SessionID: string(fss.sessionIDGenerator.Get()),
+		Secret:    fss.secretGenerator.Get(),
 		Identity:  id,
 	}
-	filename := dss.sessionToFile(fs.SessionID)
+	filename := fss.sessionToFile(fs.SessionID)
 
 	f, err := os.Create(filename)
 	if err != nil {
@@ -190,26 +189,26 @@ func (dss *DirSessionServer) NewSession(id *identity.Identity) (Session, error) 
 	_ = f.Close()
 
 	return &fileSession{
-		dss.AbstractTime.Now().UTC(),
+		fss.AbstractTime.Now().UTC(),
 		SessionID(fs.SessionID),
 		fs.Identity,
 		fs.Secret,
-		dss,
+		fss,
 	}, nil
 }
 
-func (dss *DirSessionServer) GetAuthenticationUnwrapper(id string) (secret.AuthenticationUnwrapper, error) {
-	return dss.GetSession(SessionID(id))
+func (fss *FilesystemServer) GetAuthenticationUnwrapper(id string) (secret.AuthenticationUnwrapper, error) {
+	return fss.GetSession(SessionID(id))
 }
 
 func (fs *fileSession) Expired() bool {
-	now := fs.dss.Now()
+	now := fs.fss.Now()
 
-	return fs.lastRefreshTime.Add(fs.dss.Timeout).Before(now)
+	return fs.lastRefreshTime.Add(fs.fss.Timeout).Before(now)
 }
 
 func (fs *fileSession) Expire() {
-	os.Remove(fs.dss.sessionToFile(string(fs.sessionID)))
+	os.Remove(fs.fss.sessionToFile(string(fs.sessionID)))
 }
 
 func (fs *fileSession) SessionID() (bool, SessionID) {

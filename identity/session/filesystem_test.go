@@ -14,7 +14,7 @@ import (
 	"github.com/thejerf/sphyraena/secret"
 )
 
-func getDiskSession(t *testing.T) (*DirSessionServer, func()) {
+func getDiskSession(t *testing.T) (*FilesystemServer, func()) {
 	dir, err := ioutil.TempDir("", "sphyraena_session_disk_test")
 	if err != nil {
 		t.Fatalf("Couldn't get temporary dir: %v", err)
@@ -27,8 +27,8 @@ func getDiskSession(t *testing.T) (*DirSessionServer, func()) {
 
 	manTime := abtime.NewManual()
 
-	dss := NewDiskServer(dir, idGen, secretGen,
-		&DirSessionSettings{
+	dss := NewFilesystemServer(dir, idGen, secretGen,
+		&FilesystemServerSettings{
 			AbstractTime: manTime,
 			Timeout:      time.Hour,
 		})

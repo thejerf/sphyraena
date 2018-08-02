@@ -115,7 +115,7 @@ type JSONResponse struct {
 // logged-in user.
 func (jf *JSONForwarder) ServeStreaming(rw *sphyrw.SphyraenaResponseWriter, context *context.Context) {
 	// if this comes back blank, it will not be passed in
-	userID, _ := context.Session().Identity().UniqueID()
+	userID := context.Session().Identity().AuthenticationName()
 
 	response := jf.HandleReq(context.Request, context.PrecedingPath, userID)
 
