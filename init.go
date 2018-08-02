@@ -21,10 +21,19 @@ type Sphyraena struct {
 	*router.SphyraenaRouter
 }
 
-type SphyraenaArgs struct {
+// There's some sort of structure trying to get out here, tying together
+// all the services....
+
+type Args struct {
 	SessionIDGenerator *session.SessionIDGenerator
 	SecretGenerator    *secret.Generator
 	SessionServer      session.SessionServer
+
+	// This is to allow for the fact that the user may want to use the defaults
+	SessionServerFunc func(
+		*session.SessionIDGenerator,
+		*secret.Generator,
+	) session.SessionServer
 }
 
 // Sphyraena brings up a new instance of a Sphyraena environment with some
@@ -36,11 +45,11 @@ type SphyraenaArgs struct {
 //
 // This is *definitely* going to be seeing some changes. Currently wiring
 // Sphyraena together is quite prissy.
-func New(args *SphyraenaArgs) *Sphyraena {
+func New(args *Args) *Sphyraena {
 	supervisor := suture.NewSimple("sphyraena root supervisor")
 
 	if args == nil {
-		args = &SphyraenaArgs{}
+		args = &Args{}
 	}
 
 	if args.SessionIDGenerator == nil {
@@ -51,10 +60,16 @@ func New(args *SphyraenaArgs) *Sphyraena {
 		args.SecretGenerator = secret.NewGenerator(128)
 	}
 	supervisor.Add(args.SecretGenerator)
+
 	if args.SessionServer == nil {
-		args.SessionServer = session.NewRAMServer(
-			args.SessionIDGenerator, args.SecretGenerator,
-			&session.RAMSessionSettings{time.Minute * 180, nil})
+		if args.SessionServerFunc == nil {
+			args.SessionServer = session.NewRAMServer(
+				args.SessionIDGenerator, args.SecretGenerator,
+				&session.RAMSessionSettings{time.Minute * 180, nil})
+		} else {
+			args.SessionServer = args.SessionServerFunc(
+				args.SessionIDGenerator, args.SecretGenerator)
+		}
 	}
 
 	ctx := context.NewSphyraenaState(args.SessionServer, nil)
