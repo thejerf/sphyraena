@@ -96,7 +96,7 @@ func (rr *Request) routeResult() *context.RouteResult {
 	headers := http.Header{}
 	cookies := map[string]*cookie.OutCookie{}
 	holes := hole.SecurityHoles{}
-	for _, frame := range rr.frames[0:rr.current] {
+	for _, frame := range rr.frames[0 : rr.current+1] {
 		for key, value := range frame.parameters {
 			parameters[key] = value
 		}

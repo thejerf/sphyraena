@@ -129,7 +129,11 @@ func (ca *CookieAuth) Route(r *router.Request) (res router.Result) {
 	sessionCookie := r.Context.Cookies.Get("session")
 
 	if sessionCookie == nil {
-		cookie, err := PasswordAuthenticate(ca.passwordAuthenticator, r.Context)
+		cookie, err := PasswordAuthenticate(
+			ca.passwordAuthenticator,
+			r.Context,
+			ca.Options...,
+		)
 		if err == nil {
 			if cookie != nil {
 				r.AddCookie(cookie)
