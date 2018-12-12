@@ -1,4 +1,4 @@
-package context
+package request
 
 // This doesn't seem to belong in here necessarily, but it can't go in
 // strest due to import loops. FIXME hopefully it will become clear where
@@ -16,7 +16,7 @@ import (
 // responses. You should also consider implementing the MayStream interface
 // on anything that implements this interface.
 type Handler interface {
-	ServeStreaming(*sphyrw.SphyraenaResponseWriter, *Context)
+	ServeStreaming(*sphyrw.SphyraenaResponseWriter, *Request)
 }
 
 // MayStream is an interface that allows a Handler to declare in advance
@@ -38,10 +38,10 @@ type MayStream interface {
 
 // A HandlerFunc allows a simple function to function as a Streaming REST
 // handler, just like http.HandlerFunc.
-type HandlerFunc func(*sphyrw.SphyraenaResponseWriter, *Context)
+type HandlerFunc func(*sphyrw.SphyraenaResponseWriter, *Request)
 
 // ServeStreaming simply calls the HandlerFunc.
-func (fh HandlerFunc) ServeStreaming(rw *sphyrw.SphyraenaResponseWriter, context *Context) {
+func (fh HandlerFunc) ServeStreaming(rw *sphyrw.SphyraenaResponseWriter, context *Request) {
 	fh(rw, context)
 }
 
@@ -63,7 +63,7 @@ type NetHTTPHandler struct {
 }
 
 // Handle calls the handling method of the HTTP handler.
-func (nhh NetHTTPHandler) ServeStreaming(rw *sphyrw.SphyraenaResponseWriter, context *Context) {
+func (nhh NetHTTPHandler) ServeStreaming(rw *sphyrw.SphyraenaResponseWriter, context *Request) {
 	nhh.ServeHTTP(rw, context.Request)
 }
 

@@ -26,6 +26,8 @@ var ErrClosed = errors.New("stream closed")
 
 // ErrNoStreamingContext is returned when a stream is requested, but there
 // is no streaming context available.
+//
+// FIXME: Better name?
 var ErrNoStreamingContext = errors.New("no streaming context available")
 
 type substreamret struct {

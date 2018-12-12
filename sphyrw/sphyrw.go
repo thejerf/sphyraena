@@ -38,6 +38,7 @@ var ErrCantHijack = errors.New("Underlying RequestWriter has no Hijacking suppor
 // the browser to avoid confusion, and the intrinsically random way in
 // which headers can be output since they fundamentally live in a map.
 
+// FIXME: rename to something smaller, like Writer
 type SphyraenaResponseWriter struct {
 	outCookies       map[string]*cookie.OutCookie
 	underlyingWriter http.ResponseWriter

@@ -1,4 +1,4 @@
-package sample
+package handlers
 
 import (
 	"encoding/binary"
@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/thejerf/sphyraena/context"
+	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/sphyrw"
 )
 
@@ -113,11 +113,11 @@ type JSONResponse struct {
 //
 // This does Sphyraena-specific functionality, like determining the
 // logged-in user.
-func (jf *JSONForwarder) ServeStreaming(rw *sphyrw.SphyraenaResponseWriter, context *context.Context) {
+func (jf *JSONForwarder) ServeStreaming(rw *sphyrw.SphyraenaResponseWriter, req *request.Request) {
 	// if this comes back blank, it will not be passed in
-	userID := context.Session().Identity().AuthenticationName()
+	userID := req.Session().Identity().AuthenticationName()
 
-	response := jf.HandleReq(context.Request, context.PrecedingPath, userID)
+	response := jf.HandleReq(req.Request, req.PrecedingPath, userID)
 
 	headers := rw.Header()
 	for key, value := range response.Headers {

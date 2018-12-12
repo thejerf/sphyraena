@@ -8,8 +8,8 @@ package sphyraena
 import (
 	"time"
 
-	"github.com/thejerf/sphyraena/context"
 	"github.com/thejerf/sphyraena/identity/session"
+	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/router"
 	"github.com/thejerf/sphyraena/secret"
 	"github.com/thejerf/suture"
@@ -17,7 +17,7 @@ import (
 
 type Sphyraena struct {
 	*suture.Supervisor
-	*context.SphyraenaState
+	*request.SphyraenaState
 	*router.SphyraenaRouter
 }
 
@@ -72,7 +72,7 @@ func New(args *Args) *Sphyraena {
 		}
 	}
 
-	ctx := context.NewSphyraenaState(args.SessionServer, nil)
+	ctx := request.NewSphyraenaState(args.SessionServer, nil)
 	r := router.New(ctx)
 
 	return &Sphyraena{

@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thejerf/sphyraena/context"
+	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/sphyrw"
 )
 
@@ -85,27 +85,27 @@ func (fss *FileSystemServer) MayStream() bool {
 	return false
 }
 
-func (fss *FileSystemServer) ServeStreaming(rw *sphyrw.SphyraenaResponseWriter, context *context.Context) {
-	if len(context.RemainingPath) > 0 {
-		if context.RemainingPath != path.Clean(context.RemainingPath) {
+func (fss *FileSystemServer) ServeStreaming(rw *sphyrw.SphyraenaResponseWriter, req *request.Request) {
+	if len(req.RemainingPath) > 0 {
+		if req.RemainingPath != path.Clean(req.RemainingPath) {
 			fmt.Println("Does not match cleaned path")
 			http.Error(rw, "Invalid request", 400)
 			return
 		}
 		// FIXME: Need to do some exhaustive testing here for correctness
 		// in index and non-index positions
-		if context.RemainingPath[0] == '/' {
-			context.RemainingPath = context.RemainingPath[1:]
+		if req.RemainingPath[0] == '/' {
+			req.RemainingPath = req.RemainingPath[1:]
 		}
 	}
 
-	if context.RemainingPath == "" && !fss.Index {
+	if req.RemainingPath == "" && !fss.Index {
 		rw.Write([]byte("This is a top-level directory request that needs redir"))
 		return
 	}
 
 	// FIXME: This can be re-inlined at some point
-	fss.serveFile(rw, context)
+	fss.serveFile(rw, req)
 }
 
 var simpleNameBytes = [256]bool{}
@@ -252,14 +252,14 @@ func (fss *FileSystemServer) validMode(fm os.FileMode) bool {
 // TODO(jbowers): The effort to convert all the w and r to req and
 // req.Request wasn't worth it... if I ever port upstream changes, just
 // switch to a "w" and an "r" early and let the rest cascade through
-func (fss *FileSystemServer) serveFile(rw http.ResponseWriter, context *context.Context) {
+func (fss *FileSystemServer) serveFile(rw http.ResponseWriter, req *request.Request) {
 	// skip redirecting the index page to the dir for now
-	path := context.RemainingPath
+	path := req.RemainingPath
 
 	// we are guaranteed "/" is a directory marker by the contract of
 	// the http.FileSystem interface
 	if !fss.ServeSubdirectories && strings.Contains(path, "/") {
-		http.NotFound(rw, context.Request)
+		http.NotFound(rw, req.Request)
 		return
 	}
 
@@ -268,21 +268,21 @@ func (fss *FileSystemServer) serveFile(rw http.ResponseWriter, context *context.
 		if fss.IndexFile != "" {
 			path = path + fss.IndexFile
 		} else {
-			http.NotFound(rw, context.Request)
+			http.NotFound(rw, req.Request)
 			return
 		}
 	}
 
 	f, err := fss.FileSystem.Open(path)
 	if err != nil {
-		http.NotFound(rw, context.Request)
+		http.NotFound(rw, req.Request)
 		return
 	}
 	defer f.Close()
 
 	d, err := f.Stat()
 	if err != nil {
-		http.NotFound(rw, context.Request)
+		http.NotFound(rw, req.Request)
 		return
 	}
 
@@ -291,18 +291,18 @@ func (fss *FileSystemServer) serveFile(rw http.ResponseWriter, context *context.
 
 	// If this has an illegal mode, refuse to admit it exists
 	if !fss.validMode(d.Mode()) {
-		http.NotFound(rw, context.Request)
+		http.NotFound(rw, req.Request)
 		return
 	}
 
 	// FIXME: Pass it through name validation
 	sizeFunc := func() (int64, error) { return d.Size(), nil }
-	fss.serveContent(rw, context, d.Name(), d.ModTime(), sizeFunc, f)
+	fss.serveContent(rw, req, d.Name(), d.ModTime(), sizeFunc, f)
 }
 
-func (fss *FileSystemServer) serveContent(rw http.ResponseWriter, context *context.Context, name string, modtime time.Time, sizeFunc func() (int64, error), content io.ReadSeeker) {
+func (fss *FileSystemServer) serveContent(rw http.ResponseWriter, req *request.Request, name string, modtime time.Time, sizeFunc func() (int64, error), content io.ReadSeeker) {
 	// FIXME: checkLastModified
-	rangeReq, done := fss.checkETag(rw, context, modtime)
+	rangeReq, done := fss.checkETag(rw, req, modtime)
 	if done {
 		return
 	}
@@ -321,7 +321,7 @@ func (fss *FileSystemServer) serveContent(rw http.ResponseWriter, context *conte
 		show, ctype = ConservativeFileServing(name)
 	}
 	if !show {
-		http.NotFound(rw, context.Request)
+		http.NotFound(rw, req.Request)
 		return
 	}
 	if ctype == "" {
@@ -413,7 +413,7 @@ func (fss *FileSystemServer) serveContent(rw http.ResponseWriter, context *conte
 
 	rw.WriteHeader(code)
 
-	if context.Request.Method != "HEAD" {
+	if req.Request.Method != "HEAD" {
 		if fss.BypassSendFile {
 			_, err := io.CopyN(writerOnly{rw}, sendContent, sendSize)
 			if err != nil {
@@ -434,9 +434,9 @@ type writerOnly struct {
 	io.Writer
 }
 
-func (fss *FileSystemServer) checkETag(rw http.ResponseWriter, context *context.Context, modtime time.Time) (rangeReq string, done bool) {
+func (fss *FileSystemServer) checkETag(rw http.ResponseWriter, req *request.Request, modtime time.Time) (rangeReq string, done bool) {
 	etag := rw.Header().Get("Etag")
-	rangeReq = context.Request.Header.Get("Range")
+	rangeReq = req.Request.Header.Get("Range")
 
 	// Invalidate the range request if the entity doesn't match the one
 	// the client was expecting.
@@ -444,7 +444,7 @@ func (fss *FileSystemServer) checkETag(rw http.ResponseWriter, context *context.
 	// current file."
 	// We only support ETag versions.
 	// The caller must have set the ETag on the response already.
-	if ir := context.Request.Header.Get("If-Range"); ir != "" && ir != etag {
+	if ir := req.Request.Header.Get("If-Range"); ir != "" && ir != etag {
 		// The If-Range value is typically the ETag value, but it may also be
 		// the modtime date. See golang.org/issue/8367.
 		timeMatches := false
@@ -458,13 +458,13 @@ func (fss *FileSystemServer) checkETag(rw http.ResponseWriter, context *context.
 		}
 	}
 
-	if inm := context.Request.Header.Get("If-None-Match"); inm != "" {
+	if inm := req.Request.Header.Get("If-None-Match"); inm != "" {
 		// Must know ETag.
 		if etag == "" {
 			return rangeReq, false
 		}
 
-		if context.Request.Method != "GET" && context.Request.Method != "HEAD" {
+		if req.Request.Method != "GET" && req.Request.Method != "HEAD" {
 			return rangeReq, false
 		}
 

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/thejerf/sphyraena/context"
+	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/sphyrw"
 )
 
@@ -18,7 +18,7 @@ type LoginHint struct {
 	Title    string
 }
 
-func Login(rw *sphyrw.SphyraenaResponseWriter, ctx *context.Context) {
+func Login(rw *sphyrw.SphyraenaResponseWriter, req *request.Request) {
 	err := templates.ExecuteTemplate(rw, "login.tmpl",
 		LoginHint{*username, *password, "Login to Sample Site"})
 

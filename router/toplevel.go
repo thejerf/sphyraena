@@ -3,7 +3,7 @@ package router
 import (
 	"net/http"
 
-	"github.com/thejerf/sphyraena/context"
+	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/sphyrw"
 	"github.com/thejerf/sphyraena/sphyrw/hole"
 )
@@ -20,10 +20,10 @@ import (
 type SphyraenaRouter struct {
 	*RouteBlock
 
-	sphyraenaState *context.SphyraenaState
+	sphyraenaState *request.SphyraenaState
 }
 
-func New(ss *context.SphyraenaState) *SphyraenaRouter {
+func New(ss *request.SphyraenaState) *SphyraenaRouter {
 	return &SphyraenaRouter{
 		&RouteBlock{[]RouterClause{}},
 		ss,
@@ -32,15 +32,15 @@ func New(ss *context.SphyraenaState) *SphyraenaRouter {
 
 // ServeHTTP implements the http.Handler interface.
 func (sr *SphyraenaRouter) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	ctx, srw := sr.sphyraenaState.NewContext(rw, req)
+	ctx, srw := sr.sphyraenaState.NewRequest(rw, req)
 
 	sr.RunRoute(srw, ctx)
 }
 
 // this can be recursively called to re-run a route when something about
 // the request has changed.
-func (sr *SphyraenaRouter) RunRoute(rw *sphyrw.SphyraenaResponseWriter, ctx *context.Context) {
-	streamingHandler, routeResult, err := sr.getStrest(ctx)
+func (sr *SphyraenaRouter) RunRoute(rw *sphyrw.SphyraenaResponseWriter, req *request.Request) {
+	streamingHandler, routeResult, err := sr.getStrest(req)
 	if err != nil {
 		// FIXME: need to do something different
 		panic(err.Error())
@@ -51,11 +51,11 @@ func (sr *SphyraenaRouter) RunRoute(rw *sphyrw.SphyraenaResponseWriter, ctx *con
 	// Though as SphyRW gets stronger and starts returning things, maybe
 	// that will be less true.
 	if streamingHandler == nil {
-		http.NotFound(rw, ctx.Request)
+		http.NotFound(rw, req.Request)
 		return
 	}
 
-	ctx.RouteResult = routeResult
+	req.RouteResult = routeResult
 	for key, val := range routeResult.Headers {
 		// safe because we only ever set values through the API
 		rw.Header()[key] = val
@@ -72,19 +72,19 @@ func (sr *SphyraenaRouter) RunRoute(rw *sphyrw.SphyraenaResponseWriter, ctx *con
 	hole.ApplySecurityHeaders(rw.Header(), routeResult.Holes)
 
 	// If the streamingHandler can not stream, run it under
-	mayStream, hasMayStream := streamingHandler.(context.MayStream)
+	mayStream, hasMayStream := streamingHandler.(request.MayStream)
 	if hasMayStream && mayStream.MayStream() == false {
-		ctx.RunningAsGoroutine = false
-		streamingHandler.ServeStreaming(rw, ctx)
+		req.RunningAsGoroutine = false
+		streamingHandler.ServeStreaming(rw, req)
 		return
 	}
 
-	sr.runInGoroutine(streamingHandler, rw, ctx)
+	sr.runInGoroutine(streamingHandler, rw, req)
 }
 
 // this is primarily broken out for the tests
-func (sr *SphyraenaRouter) getStrest(context *context.Context) (context.Handler, *context.RouteResult, error) {
-	routerRequest := newRequest(context)
+func (sr *SphyraenaRouter) getStrest(req *request.Request) (request.Handler, *request.RouteResult, error) {
+	routerRequest := newRequest(req)
 
 	result := sr.Route(routerRequest)
 

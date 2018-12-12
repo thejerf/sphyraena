@@ -9,13 +9,13 @@ import (
 
 	"github.com/alecthomas/template"
 	"github.com/thejerf/abtime"
-	"github.com/thejerf/sphyraena/context"
+	"github.com/thejerf/sphyraena/elements/handlers"
+	"github.com/thejerf/sphyraena/elements/handlers/dirserve"
 	"github.com/thejerf/sphyraena/identity/auth/enticate/clauses"
 	"github.com/thejerf/sphyraena/identity/auth/enticate/samples"
 	"github.com/thejerf/sphyraena/identity/session"
+	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/router"
-	"github.com/thejerf/sphyraena/sample"
-	"github.com/thejerf/sphyraena/sample/dirserve"
 	"github.com/thejerf/sphyraena/secret"
 	"github.com/thejerf/sphyraena/sphyrw"
 	"github.com/thejerf/suture"
@@ -53,7 +53,7 @@ func main() {
 	ramSessionServer := session.NewRAMServer(
 		sessionIDGenerator, secretGenerator,
 		&session.RAMSessionSettings{time.Minute * 180, abtime.NewRealTime()})
-	r := router.New(context.NewSphyraenaState(ramSessionServer, nil))
+	r := router.New(request.NewSphyraenaState(ramSessionServer, nil))
 
 	r.AddLocationForward("/public/", &dirserve.FileSystemServer{
 		FileSystem:          http.Dir(*baseloc + "/public/"),
@@ -67,13 +67,13 @@ func main() {
 	hardCoded := samples.NewHardcodedAuth()
 	hardCoded.AddUser(*username, *password)
 	cookieAuth, _ := clauses.NewCookieAuth(
-		router.NewRouteBlock(&router.ForwardClause{context.HandlerFunc(Login)}),
+		router.NewRouteBlock(&router.ForwardClause{request.HandlerFunc(Login)}),
 		hardCoded,
 	)
 	r.Add(cookieAuth)
-	r.AddLocationForward("/samplerest", context.HandlerFunc(sample.CounterOut))
+	r.AddLocationForward("/samplerest", request.HandlerFunc(handlers.CounterOut))
 	//	r.AddLocationForward("/socket/", sockjs.StreamingRESTHandler())
-	r.AddLocationForward("/", context.HandlerFunc(Index))
+	r.AddLocationForward("/", request.HandlerFunc(Index))
 
 	m.Handle("/", r)
 	server := &http.Server{
@@ -99,8 +99,8 @@ type IndexType struct {
 	StreamID string
 }
 
-func Index(rw *sphyrw.SphyraenaResponseWriter, ctx *context.Context) {
-	sID, _ := ctx.StreamID()
+func Index(rw *sphyrw.SphyraenaResponseWriter, req *request.Request) {
+	sID, _ := req.StreamID()
 
 	err2 := templates.ExecuteTemplate(rw, "index.tmpl",
 		IndexType{"Index", string(sID)})

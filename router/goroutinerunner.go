@@ -1,7 +1,7 @@
 package router
 
 import (
-	"github.com/thejerf/sphyraena/context"
+	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/sphyrw"
 )
 
@@ -13,12 +13,12 @@ type PanicInfo struct {
 // goroutine. This allows that goroutine to indicate to the goroutine
 // running in the http server that this specific request is terminated, but
 // the goroutine can continue running to emit events.
-func (sr *SphyraenaRouter) runInGoroutine(handler context.Handler, rw *sphyrw.SphyraenaResponseWriter, ctx *context.Context) {
+func (sr *SphyraenaRouter) runInGoroutine(handler request.Handler, rw *sphyrw.SphyraenaResponseWriter, req *request.Request) {
 	// let's do a basic first-cut pass of simply running this in a
 	// goroutine before we get fancy
 
 	done := make(chan *PanicInfo)
-	ctx.RunningAsGoroutine = true
+	req.RunningAsGoroutine = true
 
 	go func() {
 		defer func() {
@@ -27,7 +27,7 @@ func (sr *SphyraenaRouter) runInGoroutine(handler context.Handler, rw *sphyrw.Sp
 				done <- &PanicInfo{r}
 			}
 		}()
-		handler.ServeStreaming(rw, ctx)
+		handler.ServeStreaming(rw, req)
 		done <- nil
 	}()
 

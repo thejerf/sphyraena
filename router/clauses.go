@@ -3,7 +3,7 @@ package router
 import (
 	"bytes"
 
-	"github.com/thejerf/sphyraena/context"
+	"github.com/thejerf/sphyraena/request"
 )
 
 // A StaticLocation matches a given static portion of the URL.
@@ -50,7 +50,7 @@ func (sl *StaticLocation) Prototype() RouterClause {
 // "/a_different_url", or worse, start stuffing XSS in there. If you want
 // to forward along the remainder of the URL, use a Forwarding clause.
 type ReturnClause struct {
-	context.Handler
+	request.Handler
 }
 
 func (rc ReturnClause) Route(rr *Request) (res Result) {
@@ -85,7 +85,7 @@ func (rc ReturnClause) Prototype() RouterClause {
 // When writing routes, you should consider ReturnClauses the thing you use
 // by default, until you find you need a ForwardClause.
 type ForwardClause struct {
-	context.Handler
+	request.Handler
 }
 
 func (rc ForwardClause) Route(*Request) (res Result) {

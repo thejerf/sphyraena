@@ -1,4 +1,4 @@
-package context
+package request
 
 import "github.com/thejerf/sphyraena/identity/auth/enticate"
 
@@ -7,13 +7,13 @@ type authenticationKey struct{}
 
 // SetAuthError sets the given error as the AuthError for the current web
 // page request.
-func (c *Context) SetAuthError(err enticate.AuthError) {
+func (c *Request) SetAuthError(err enticate.AuthError) {
 	c.Set(authenticationKey{}, err)
 }
 
 // ValueAuthError returns the AuthError as a correctly-typed value, or nil if there
 // is no AuthError.
-func (c *Context) ValueAuthError() enticate.AuthError {
+func (c *Request) ValueAuthError() enticate.AuthError {
 	val := c.Value(authenticationKey{})
 	if val == nil {
 		return nil

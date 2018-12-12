@@ -1,10 +1,10 @@
-package context
+package request
 
 import "github.com/thejerf/sphyraena/strest"
 
-// Context methods for dealing with streams.
+// Request methods for dealing with streams.
 
-func (c *Context) getStream() (*strest.Stream, error) {
+func (c *Request) getStream() (*strest.Stream, error) {
 	if !c.RunningAsGoroutine {
 		return nil, strest.ErrNoStreamingContext
 	}
@@ -21,7 +21,7 @@ func (c *Context) getStream() (*strest.Stream, error) {
 	return c.currentStream, nil
 }
 
-func (c *Context) StreamID() (strest.StreamID, error) {
+func (c *Request) StreamID() (strest.StreamID, error) {
 	s, err := c.getStream()
 	if err != nil {
 		return strest.StreamID(""), err
@@ -29,7 +29,7 @@ func (c *Context) StreamID() (strest.StreamID, error) {
 	return s.ID(), nil
 }
 
-func (c *Context) SubstreamFromUser() (*strest.ReceiveOnlySubstream, error) {
+func (c *Request) SubstreamFromUser() (*strest.ReceiveOnlySubstream, error) {
 	stream, err := c.getStream()
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func (c *Context) SubstreamFromUser() (*strest.ReceiveOnlySubstream, error) {
 	return stream.SubstreamFromUser()
 }
 
-func (c *Context) SubstreamToUser() (*strest.SendOnlySubstream, error) {
+func (c *Request) SubstreamToUser() (*strest.SendOnlySubstream, error) {
 	stream, err := c.getStream()
 	if err != nil {
 		return nil, err
@@ -47,7 +47,7 @@ func (c *Context) SubstreamToUser() (*strest.SendOnlySubstream, error) {
 	return stream.SubstreamToUser()
 }
 
-func (c *Context) Substream() (*strest.Substream, error) {
+func (c *Request) Substream() (*strest.Substream, error) {
 	stream, err := c.getStream()
 	if err != nil {
 		return nil, err

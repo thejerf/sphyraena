@@ -74,7 +74,7 @@ package router
 import (
 	"net/http"
 
-	"github.com/thejerf/sphyraena/context"
+	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/sphyrw/cookie"
 	"github.com/thejerf/sphyraena/sphyrw/hole"
 )
@@ -91,7 +91,7 @@ type RouterFrame struct {
 	isFinal    bool
 }
 
-func (rr *Request) routeResult() *context.RouteResult {
+func (rr *Request) routeResult() *request.RouteResult {
 	parameters := map[string]string{}
 	headers := http.Header{}
 	cookies := map[string]*cookie.OutCookie{}
@@ -119,7 +119,7 @@ func (rr *Request) routeResult() *context.RouteResult {
 	remainingPath := string(rr.frames[rr.current].remainingPath())
 	precedingPath := string(rr.basePath[0 : len(rr.basePath)-len(remainingPath)])
 
-	return &context.RouteResult{
+	return &request.RouteResult{
 		Parameters:    parameters,
 		PrecedingPath: precedingPath,
 		RemainingPath: remainingPath,
@@ -147,7 +147,7 @@ func (rf *RouterFrame) Reset(path []byte) {
 	rf.parameters = nil
 }
 
-// A Request is a context.Context for the current request, gussied
+// A Request is a request.Request for the current request, gussied
 // up with some additional things that allow it to track the process of
 // routing a request to the target handler.
 //
@@ -168,7 +168,7 @@ type Request struct {
 	holes    []hole.SecurityHole
 	current  int
 	limit    int
-	*context.Context
+	*request.Request
 }
 
 func (rf *RouterFrame) remainingPath() []byte {
@@ -176,16 +176,16 @@ func (rf *RouterFrame) remainingPath() []byte {
 	return rf.path[rf.consume:]
 }
 
-func newRequest(ctx *context.Context) *Request {
+func newRequest(req *request.Request) *Request {
 	frames := make([]RouterFrame, 5)
-	basePath := []byte(ctx.URL.Path)
+	basePath := []byte(req.URL.Path)
 	frames[0].path = basePath
 	return &Request{
 		basePath: basePath,
 		frames:   frames,
 		holes:    []hole.SecurityHole{},
 		current:  0,
-		Context:  ctx,
+		Request:  req,
 	}
 }
 
@@ -265,10 +265,10 @@ func (rr *Request) CurrentPath() []byte {
 // A Router is something that can participate in the routing of the
 // request. The Result contains the result of the given route request.
 //
-// If this returns a non-nil context.Handler, that will be the result of this
+// If this returns a non-nil request.Handler, that will be the result of this
 // call. Router terminates.
 //
-// If the context.Handler is nil, but the Router is non-nil, then this Router
+// If the request.Handler is nil, but the Router is non-nil, then this Router
 // will be recursed into, counting against the recursion limit. It
 // otherwise behaves normally.
 //
@@ -282,7 +282,7 @@ type Router interface {
 
 // A Result is the result of calling a Route operation.
 type Result struct {
-	context.Handler
+	request.Handler
 	*RouteBlock
 	Error error
 }
@@ -406,13 +406,13 @@ func (rb *RouteBlock) Location(path string) *RouteBlock {
 
 // AddLocationReturn is a simple convenience function to add a
 // streaming REST handler directly to the given location.
-func (rb *RouteBlock) AddLocationReturn(path string, h context.Handler) {
+func (rb *RouteBlock) AddLocationReturn(path string, h request.Handler) {
 	rb.Add(&StaticLocation{path, DirectReturn(h)})
 }
 
 // AddLocationForward is a simple convenience function to add a
 // ForwardClause directly to a given location.
-func (rb *RouteBlock) AddLocationForward(path string, h context.Handler) {
+func (rb *RouteBlock) AddLocationForward(path string, h request.Handler) {
 	rb.Add(&StaticLocation{path, &RouteBlock{[]RouterClause{ForwardClause{h}}}})
 }
 
@@ -423,6 +423,6 @@ func (rb *RouteBlock) GetRouteBlock() *RouteBlock {
 	return rb
 }
 
-func DirectReturn(h context.Handler) *RouteBlock {
+func DirectReturn(h request.Handler) *RouteBlock {
 	return &RouteBlock{[]RouterClause{ReturnClause{h}}}
 }

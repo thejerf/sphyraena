@@ -1,4 +1,4 @@
-package context
+package request
 
 // FIXME: This package needs a name other than context, goimports keeps
 // resolving this to the google version.
@@ -33,13 +33,15 @@ type SphyraenaState struct {
 // type that doesn't offer that functionality. Currently waiting-and-seeing
 // to see what all the Context ends up with before it's all said and done.
 
-// Context is the Sphyraena-specific context for requests.
+// Request is the Sphyraena-specific request for Sphyraena.
 //
-// This also complies with the interface for contexts as defined at
-// https://godoc.org/golang.org/x/net/context#Context (or whereever that
-// may live in the future, if it gets into core). As of this writing, full
-// functionality is not yet supported, but the interface is conformed to.
-type Context struct {
+// In addition to composing *http.Request in, it has additional
+// functionality for dealing with Sphyraena-specific functionality.
+//
+// FIXME: At the moment, this has a non-compliant context
+// implementation. This should eventually be replaced by a simple
+// context.Context object.
+type Request struct {
 	*SphyraenaState
 	*RouteResult
 	session session.Session
@@ -61,7 +63,7 @@ type Context struct {
 }
 
 // Session retrieves the current session for the session.
-func (c *Context) Session() session.Session {
+func (c *Request) Session() session.Session {
 	return c.session
 }
 
@@ -74,7 +76,7 @@ func (c *Context) Session() session.Session {
 // It is intended that any attempt to modify the user's permissions
 // requires a new session and results in a new session authorization
 // (cookie, usually).
-func (c *Context) SetSession(s session.Session) {
+func (c *Request) SetSession(s session.Session) {
 	// note this does not manipulate cookies, because there are session
 	// mechanims other than cookies.
 	c.session.Expire()
@@ -96,30 +98,30 @@ type RouteResult struct {
 	Holes         hole.SecurityHoles
 }
 
-// Deadline implements the Context's Deadline method, by hardcoding that there
+// Deadline implements the Request's Deadline method, by hardcoding that there
 // is no deadline.
-func (c *Context) Deadline() (time.Time, bool) {
+func (c *Request) Deadline() (time.Time, bool) {
 	return time.Time{}, false
 }
 
-// Done implements the Context's Done method by always returning nil.
-func (c *Context) Done() <-chan struct{} {
+// Done implements the Request's Done method by always returning nil.
+func (c *Request) Done() <-chan struct{} {
 	return nil
 }
 
-// Err implements the Context's Err method by always returning nil.
-func (c *Context) Err() error {
+// Err implements the Request's Err method by always returning nil.
+func (c *Request) Err() error {
 	return nil
 }
 
 // Value returns the value the context contains for the given key. Keys
 // reserved by Sphyraena itself use Sphyraena-specific types. You should
 // use only your own types or built-in types as keys.
-func (c *Context) Value(key interface{}) interface{} {
+func (c *Request) Value(key interface{}) interface{} {
 	return c.values[key]
 }
 
-func (c *Context) Set(key, value interface{}) {
+func (c *Request) Set(key, value interface{}) {
 	c.values[key] = value
 }
 
@@ -140,7 +142,7 @@ func NewSphyraenaState(ss session.SessionServer, defaultIdentity func() *identit
 // FIXME: Yes, there's a huge mess developing here between the context and
 // the SPHYRW.
 
-func (ss *SphyraenaState) NewContext(rw http.ResponseWriter, req *http.Request) (*Context, *sphyrw.SphyraenaResponseWriter) {
+func (ss *SphyraenaState) NewRequest(rw http.ResponseWriter, req *http.Request) (*Request, *sphyrw.SphyraenaResponseWriter) {
 	// For now, put all requests into the same session
 	var failedCookies []string
 	cookies, failedCookies := cookie.ParseCookies(req.Header["Cookie"],
@@ -159,7 +161,7 @@ func (ss *SphyraenaState) NewContext(rw http.ResponseWriter, req *http.Request) 
 		}
 	}
 
-	return &Context{
+	return &Request{
 		SphyraenaState: ss,
 		Request:        req,
 		session:        session.AnonymousSession,

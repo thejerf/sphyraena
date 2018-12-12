@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/thejerf/sphyraena/context"
+	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/sphyrw"
 )
 
@@ -14,15 +14,15 @@ func ptr(i int) *int {
 	return &i
 }
 
-func sf1(*sphyrw.SphyraenaResponseWriter, *context.Context) {}
-func sf2(*sphyrw.SphyraenaResponseWriter, *context.Context) {}
+func sf1(*sphyrw.SphyraenaResponseWriter, *request.Request) {}
+func sf2(*sphyrw.SphyraenaResponseWriter, *request.Request) {}
 
-var SF1 = context.HandlerFunc(sf1)
-var SF2 = context.HandlerFunc(sf2)
+var SF1 = request.HandlerFunc(sf1)
+var SF2 = request.HandlerFunc(sf2)
 
-func (sr *SphyraenaRouter) mustGet(t *testing.T, url string) context.Handler {
+func (sr *SphyraenaRouter) mustGet(t *testing.T, url string) request.Handler {
 	req, _ := http.NewRequest("GET", url, nil)
-	ctx, _ := sr.sphyraenaState.NewContext(httptest.NewRecorder(), req)
+	ctx, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req)
 	handler, _, err := sr.getStrest(ctx)
 	if err != nil {
 		t.Fatal("Could not get request:", err)
@@ -32,12 +32,12 @@ func (sr *SphyraenaRouter) mustGet(t *testing.T, url string) context.Handler {
 
 // yup, this is cheating. but then, note the final five characters of this
 // file's name, before the ".go"...
-func samefunc(a, b context.Handler) bool {
+func samefunc(a, b request.Handler) bool {
 	return fmt.Sprintf("%#v", a) == fmt.Sprintf("%#v", b)
 }
 
 func TestMinimalFunctionality(t *testing.T) {
-	sr := New(context.NewSphyraenaState(nil, nil))
+	sr := New(request.NewSphyraenaState(nil, nil))
 
 	if !samefunc(SF1, SF1) {
 		t.Fatal("samefunc says the same function is different")
@@ -49,7 +49,7 @@ func TestMinimalFunctionality(t *testing.T) {
 	sr.AddLocationReturn("/home/product/firmware", SF1)
 
 	req, _ := http.NewRequest("GET", "http://jerf.org/home/product/firmware", nil)
-	ctx, _ := sr.sphyraenaState.NewContext(httptest.NewRecorder(), req)
+	ctx, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req)
 	rreq := newRequest(ctx)
 	result := sr.Route(rreq)
 	if result.Error != nil {
@@ -59,7 +59,7 @@ func TestMinimalFunctionality(t *testing.T) {
 	// Verify the static location must exactly match... oh, how many hours
 	// I've lost on failing to check this sort of thing...
 	req2, _ := http.NewRequest("GET", "http://jerf.org/home/product/firmwares", nil)
-	ctx2, _ := sr.sphyraenaState.NewContext(httptest.NewRecorder(), req2)
+	ctx2, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req2)
 	rreq2 := newRequest(ctx2)
 	result = sr.Route(rreq2)
 	if result.Handler != nil {
@@ -81,12 +81,12 @@ func TestMinimalFunctionality(t *testing.T) {
 }
 
 func TestTreeOfLocations(t *testing.T) {
-	sr := New(context.NewSphyraenaState(nil, nil))
+	sr := New(request.NewSphyraenaState(nil, nil))
 	l1 := sr.Location("/test1")
 	l1.AddLocationReturn("/test2", SF2)
 
 	req, _ := http.NewRequest("GET", "http://jerf.org/test1/test2", nil)
-	ctx, _ := sr.sphyraenaState.NewContext(httptest.NewRecorder(), req)
+	ctx, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req)
 	rreq := newRequest(ctx)
 	result := sr.Route(rreq)
 	if result.Error != nil {
@@ -98,11 +98,11 @@ func TestTreeOfLocations(t *testing.T) {
 }
 
 func TestLocationForward(t *testing.T) {
-	sr := New(context.NewSphyraenaState(nil, nil))
+	sr := New(request.NewSphyraenaState(nil, nil))
 	sr.AddLocationForward("/", SF1)
 
 	req, _ := http.NewRequest("GET", "http://jerf.org/anything/goes", nil)
-	ctx, _ := sr.sphyraenaState.NewContext(httptest.NewRecorder(), req)
+	ctx, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req)
 	rreq := newRequest(ctx)
 	result := sr.Route(rreq)
 	if result.Error != nil {

@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/thejerf/sphyraena/context"
 	"github.com/thejerf/sphyraena/identity"
 	"github.com/thejerf/sphyraena/identity/auth/enticate"
 	"github.com/thejerf/sphyraena/identity/session"
+	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/router"
 	"github.com/thejerf/sphyraena/sphyrw/cookie"
 	"github.com/thejerf/sphyraena/unicode"
@@ -32,8 +32,8 @@ type CookieAuth struct {
 
 type justAuthenticated struct{}
 
-func markJustAuthenticated(c *context.Context) {
-	c.Set(justAuthenticated{}, true)
+func markJustAuthenticated(req *request.Request) {
+	req.Set(justAuthenticated{}, true)
 }
 
 // IsJustAuthenticated returns true if the passed-in context represents a
@@ -43,8 +43,8 @@ func markJustAuthenticated(c *context.Context) {
 //
 // FIXME: Why is this? Should it just be as the name suggests and be
 // IsJustAuthenticated, without regard to how the auth was done?
-func IsJustAuthenticated(c *context.Context) bool {
-	val := c.Value(justAuthenticated{})
+func IsJustAuthenticated(req *request.Request) bool {
+	val := req.Value(justAuthenticated{})
 	return val != nil && val.(bool)
 }
 
@@ -80,7 +80,7 @@ func NewCookieAuth(
 // FIXME: CookieAdder belong here or somewhere else?
 func PasswordAuthenticate(
 	pa enticate.PasswordAuthenticator,
-	r *context.Context,
+	r *request.Request,
 	options ...cookie.Option,
 ) (*cookie.OutCookie, error) {
 	// FIXME: CSRF form protection
@@ -126,12 +126,12 @@ func PasswordAuthenticate(
 }
 
 func (ca *CookieAuth) Route(r *router.Request) (res router.Result) {
-	sessionCookie := r.Context.Cookies.Get("session")
+	sessionCookie := r.Request.Cookies.Get("session")
 
 	if sessionCookie == nil {
 		cookie, err := PasswordAuthenticate(
 			ca.passwordAuthenticator,
-			r.Context,
+			r.Request,
 			ca.Options...,
 		)
 		if err == nil {

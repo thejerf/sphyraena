@@ -3,13 +3,13 @@ package sockjs
 import (
 	"fmt"
 
-	"github.com/thejerf/sphyraena/context"
+	"github.com/thejerf/sphyraena/request"
 	"gopkg.in/igm/sockjs-go.v2/sockjs"
 )
 
-func StreamingRESTHandler() context.Handler {
+func StreamingRESTHandler() request.Handler {
 	fmt.Println("In streamingRESTHandler")
-	return context.NetHTTPHandler{sockjs.NewHandler("/socket", sockjs.DefaultOptions, echoHandler)}
+	return request.NetHTTPHandler{sockjs.NewHandler("/socket", sockjs.DefaultOptions, echoHandler)}
 }
 
 func echoHandler(session sockjs.Session) {
