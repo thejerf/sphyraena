@@ -5,10 +5,6 @@ import (
 	"github.com/thejerf/sphyraena/sphyrw"
 )
 
-type PanicInfo struct {
-	panicreason interface{}
-}
-
 // runInGoroutine contains all the code to run an HTTP handler in its own
 // goroutine. This allows that goroutine to indicate to the goroutine
 // running in the http server that this specific request is terminated, but
@@ -17,22 +13,23 @@ func (sr *SphyraenaRouter) runInGoroutine(handler request.Handler, rw *sphyrw.Sp
 	// let's do a basic first-cut pass of simply running this in a
 	// goroutine before we get fancy
 
-	done := make(chan *PanicInfo)
+	done := make(chan interface{})
+	rw.SetCompletionChan(done)
 	req.RunningAsGoroutine = true
 
 	go func() {
 		defer func() {
 			// FIXME: We'll have to manually snapshot the stack trace here
 			if r := recover(); r != nil {
-				done <- &PanicInfo{r}
+				rw.FinishPanicked(r)
 			}
 		}()
 		handler.ServeStreaming(rw, req)
-		done <- nil
+		rw.Finish()
 	}()
 
 	panicReason := <-done
 	if panicReason != nil {
-		panic(panicReason.panicreason)
+		panic(panicReason)
 	}
 }

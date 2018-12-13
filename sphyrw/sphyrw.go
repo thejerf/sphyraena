@@ -24,6 +24,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 
@@ -42,7 +43,7 @@ var ErrCantHijack = errors.New("Underlying RequestWriter has no Hijacking suppor
 type SphyraenaResponseWriter struct {
 	outCookies       map[string]*cookie.OutCookie
 	underlyingWriter http.ResponseWriter
-	doneChan         chan struct{}
+	doneChan         chan interface{}
 	responseWritten  bool
 	finished         bool
 }
@@ -93,6 +94,7 @@ func (srw *SphyraenaResponseWriter) Write(b []byte) (int, error) {
 	}
 
 	srw.writeResponse()
+	fmt.Println("About to write:", string(b))
 	return srw.underlyingWriter.Write(b)
 }
 
@@ -160,4 +162,23 @@ func (srw *SphyraenaResponseWriter) Finish() {
 	}
 
 	srw.finished = true
+	srw.doneChan <- nil
+}
+
+func (srw *SphyraenaResponseWriter) FinishPanicked(panicReason interface{}) {
+	if srw.finished {
+		// FIXME: Log unexpected panic?
+		return
+	}
+
+	srw.finished = true
+	srw.doneChan <- panicReason
+}
+
+func (srw *SphyraenaResponseWriter) SetCompletionChan(c chan interface{}) {
+	if srw.doneChan != nil {
+		panic("setting an already-set doneChan")
+	}
+
+	srw.doneChan = c
 }
