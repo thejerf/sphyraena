@@ -279,3 +279,7 @@ func (fs *fileSession) NewStream() (*strest.Stream, error) {
 
 	return stream, nil
 }
+
+func (fs *fileSession) GetStream(b []byte) (*strest.Stream, error) {
+	return nil, errors.New("Filesystem does not currently support GetStream")
+}

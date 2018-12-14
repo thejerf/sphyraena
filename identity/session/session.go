@@ -67,12 +67,12 @@ type Session interface {
 	// authentication that this mixes in too freely right now.
 	NewStream() (*strest.Stream, error)
 
-	// This retrieves a stream by the given signed key. If it is from the
+	// This retrieves a stream by the given key. If it is from this
 	// session, the stream will be returned. (FIXME: or created?)
-	// This doesn't seem to be possible with all streams, because for
-	// something like a disk-backed session, the stream could well be in
-	// another OS process.
-	// GetStream([]byte) (*strest.Stream, error)
+	// This can be problematic with streams that may live in other
+	// processes, requiring some sort of forwarding arrangment or a message
+	// bus or something.
+	GetStream([]byte) (*strest.Stream, error)
 
 	// Returns active streams.
 	//

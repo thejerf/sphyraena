@@ -24,7 +24,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 
@@ -94,7 +93,6 @@ func (srw *SphyraenaResponseWriter) Write(b []byte) (int, error) {
 	}
 
 	srw.writeResponse()
-	fmt.Println("About to write:", string(b))
 	return srw.underlyingWriter.Write(b)
 }
 
@@ -162,8 +160,12 @@ func (srw *SphyraenaResponseWriter) Finish() {
 	}
 
 	srw.finished = true
-	srw.doneChan <- nil
+	if srw.doneChan != nil {
+		srw.doneChan <- nil
+	}
 }
+
+// FIXME: Test
 
 func (srw *SphyraenaResponseWriter) FinishPanicked(panicReason interface{}) {
 	if srw.finished {
@@ -172,7 +174,9 @@ func (srw *SphyraenaResponseWriter) FinishPanicked(panicReason interface{}) {
 	}
 
 	srw.finished = true
-	srw.doneChan <- panicReason
+	if srw.doneChan != nil {
+		srw.doneChan <- panicReason
+	}
 }
 
 func (srw *SphyraenaResponseWriter) SetCompletionChan(c chan interface{}) {

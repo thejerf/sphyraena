@@ -53,6 +53,8 @@ type Request struct {
 
 	currentStream *strest.Stream
 
+	canStream bool
+
 	// hack for now. Making it something public the user can screw with is
 	// a code smell. FIXME this ought to come in the form of providing a
 	// streaming context.
@@ -65,6 +67,18 @@ type Request struct {
 // Session retrieves the current session for the session.
 func (c *Request) Session() session.Session {
 	return c.session
+}
+
+// CanHandleStream returns whether or not this request can handle a stream
+// going back to it.
+//
+// Requests that come in through normal HTTP can not be streamed, or at
+// least, not in the sense that Sphyraena means. ("Normal" HTTP streaming,
+// where you just send a request slowly over time, is supported in the same
+// way net/http supports it.) Only requests that come in a way that is
+// known by the framework to be able to handle streams can be streamed.
+func (c *Request) CanHandleStream() bool {
+	return c.canStream
 }
 
 // SetSession sets the session for the current context.
@@ -142,7 +156,11 @@ func NewSphyraenaState(ss session.SessionServer, defaultIdentity func() *identit
 // FIXME: Yes, there's a huge mess developing here between the context and
 // the SPHYRW.
 
-func (ss *SphyraenaState) NewRequest(rw http.ResponseWriter, req *http.Request) (*Request, *sphyrw.SphyraenaResponseWriter) {
+func (ss *SphyraenaState) NewRequest(
+	rw http.ResponseWriter,
+	req *http.Request,
+	canStream bool,
+) (*Request, *sphyrw.SphyraenaResponseWriter) {
 	// For now, put all requests into the same session
 	var failedCookies []string
 	cookies, failedCookies := cookie.ParseCookies(req.Header["Cookie"],
@@ -167,5 +185,6 @@ func (ss *SphyraenaState) NewRequest(rw http.ResponseWriter, req *http.Request) 
 		session:        session.AnonymousSession,
 		Cookies:        cookies,
 		values:         map[interface{}]interface{}{},
+		canStream:      canStream,
 	}, srw
 }

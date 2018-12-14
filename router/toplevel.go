@@ -32,7 +32,7 @@ func New(ss *request.SphyraenaState) *SphyraenaRouter {
 
 // ServeHTTP implements the http.Handler interface.
 func (sr *SphyraenaRouter) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	ctx, srw := sr.sphyraenaState.NewRequest(rw, req)
+	ctx, srw := sr.sphyraenaState.NewRequest(rw, req, false)
 
 	sr.RunRoute(srw, ctx)
 }
@@ -71,14 +71,19 @@ func (sr *SphyraenaRouter) RunRoute(rw *sphyrw.SphyraenaResponseWriter, req *req
 	// priority over the handlers.
 	hole.ApplySecurityHeaders(rw.Header(), routeResult.Holes)
 
-	// If the streamingHandler can not stream, run it under
+	// If either the handler, or the request, can't handle streaming, run
+	// the request directly under the net/http handler as usual (no spawned
+	// goroutine).
 	mayStream, hasMayStream := streamingHandler.(request.MayStream)
-	if hasMayStream && mayStream.MayStream() == false {
+	if (hasMayStream && mayStream.MayStream() == false) ||
+		!req.CanHandleStream() {
 		req.RunningAsGoroutine = false
 		streamingHandler.ServeStreaming(rw, req)
 		return
 	}
 
+	// If both the request and the handler can handle streaming, then go
+	// ahead and do it.
 	sr.runInGoroutine(streamingHandler, rw, req)
 }
 

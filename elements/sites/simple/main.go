@@ -18,6 +18,7 @@ import (
 	"github.com/thejerf/sphyraena/router"
 	"github.com/thejerf/sphyraena/secret"
 	"github.com/thejerf/sphyraena/sphyrw"
+	"github.com/thejerf/sphyraena/strest/sockjs"
 	"github.com/thejerf/suture"
 )
 
@@ -72,7 +73,12 @@ func main() {
 	)
 	r.Add(cookieAuth)
 	r.AddLocationForward("/samplerest", request.HandlerFunc(handlers.CounterOut))
-	//	r.AddLocationForward("/socket/", sockjs.StreamingRESTHandler())
+	r.AddLocationForward("/socket/", sockjs.StreamingRESTHandler(
+		"/socket/",
+		r,
+		ramSessionServer,
+		sockjs.DefaultOptions,
+	))
 	r.AddLocationForward("/", request.HandlerFunc(Index))
 
 	m.Handle("/", r)
