@@ -1,5 +1,8 @@
 package main
 
+// Where I am: I need to work out how to start a stream in a handler, and
+// get it connected to a streaming REST interface like the counter.
+
 import (
 	"flag"
 	"fmt"
@@ -74,7 +77,7 @@ func main() {
 	r.Add(cookieAuth)
 	r.AddLocationForward("/samplerest", request.HandlerFunc(handlers.CounterOut))
 	r.AddLocationForward("/socket/", sockjs.StreamingRESTHandler(
-		"/socket/",
+		"/socket",
 		r,
 		ramSessionServer,
 		sockjs.DefaultOptions,
@@ -101,15 +104,21 @@ func main() {
 }
 
 type IndexType struct {
-	Title    string
-	StreamID string
+	Title       string
+	StreamID    string
+	CounterSpan string
 }
 
 func Index(rw *sphyrw.SphyraenaResponseWriter, req *request.Request) {
-	sID, _ := req.StreamID()
+	sID, err := req.StreamID()
+	if sID == "" {
+		fmt.Println("Stream ID error:", err)
+		return
+	}
+	fmt.Println("Stream ID:", sID)
 
 	err2 := templates.ExecuteTemplate(rw, "index.tmpl",
-		IndexType{"Index", string(sID)})
+		IndexType{"Index", string(sID), "counter_span"})
 
 	if err2 != nil {
 		fmt.Printf("Error while trying to build index page: %v\n", err2)

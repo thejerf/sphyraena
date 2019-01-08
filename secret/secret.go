@@ -214,7 +214,8 @@ func (s *Secret) authenticate(b ...[]byte) []byte {
 // the secret. It is not intended to stop dedicated attackers. Should
 // Sphyraena become large enough that this becomes a "well known"
 // technique... I'm going to declare TOTAL VICTORY because Sphyraena got
-// that popular! And still not feel bad.
+// that popular! And still not feel bad. There's really nothing to be done
+// about this; if you get access to the underlying storage, game over.
 func stupidSimpleObfuscate(b []byte) []byte {
 	b2 := append(make([]byte, 0), b...)
 	for idx := range b2 {

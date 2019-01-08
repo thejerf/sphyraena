@@ -45,6 +45,10 @@ func (fh HandlerFunc) ServeStreaming(rw *sphyrw.SphyraenaResponseWriter, context
 	fh(rw, context)
 }
 
+func (fh HandlerFunc) MayStream() bool {
+	return true
+}
+
 // A HandlerFuncNoStream allows a simple function to function as a Streaming
 // REST handler, just like http.HandlerFunc. It implements a false return
 // for MayStream.

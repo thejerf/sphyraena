@@ -16,6 +16,8 @@ import (
 	"github.com/thejerf/sphyraena/strest"
 )
 
+// FIXME: File needs to be renamed.
+
 type SphyraenaState struct {
 	session.SessionServer
 
@@ -41,6 +43,8 @@ type SphyraenaState struct {
 // FIXME: At the moment, this has a non-compliant context
 // implementation. This should eventually be replaced by a simple
 // context.Context object.
+//
+// FIXME: This needs to be renamed to HTTPRequest or something.
 type Request struct {
 	*SphyraenaState
 	*RouteResult
@@ -49,10 +53,13 @@ type Request struct {
 
 	*http.Request
 
+	// FIXME: Probably broken, use context properly instead
 	values map[interface{}]interface{}
 
+	// FIXME: Used anywhere? Probably nonsensical.
 	currentStream *strest.Stream
 
+	// FIXME: Remove. Streamability is now determined by the request type.
 	canStream bool
 
 	// hack for now. Making it something public the user can screw with is
@@ -61,6 +68,8 @@ type Request struct {
 	// FIXME It's even worse than that because if we want to reuse this
 	// context for subrequests, this isn't necessarily safe to pass
 	// along. Still, as it says, hack.
+	// FIXME: This can be entirely removed now, because we're going to run
+	// StreamHandlers in goroutines.
 	RunningAsGoroutine bool
 }
 

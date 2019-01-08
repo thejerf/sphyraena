@@ -2,11 +2,17 @@
 
 <h2>Home Page</h2>
 
-<p>Counter: hmmm</p>
+<p>Counter: <span id="{{ .CounterSpan }}">unstarted</span></p>
 
 <script>
 
 streamID = "{{ .StreamID }}";
+session = new stRestSession("/socket/", streamID);
+counter = session.resource("/samplerest/",
+    function(response) { console.log("Response: " + response) },
+    function(event) { console.log("Event: " + event) }
+    )
+counter.get({});
 
 </script>
 

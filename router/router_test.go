@@ -22,7 +22,7 @@ var SF2 = request.HandlerFunc(sf2)
 
 func (sr *SphyraenaRouter) mustGet(t *testing.T, url string) request.Handler {
 	req, _ := http.NewRequest("GET", url, nil)
-	ctx, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req)
+	ctx, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req, false)
 	handler, _, err := sr.getStrest(ctx)
 	if err != nil {
 		t.Fatal("Could not get request:", err)
@@ -49,7 +49,7 @@ func TestMinimalFunctionality(t *testing.T) {
 	sr.AddLocationReturn("/home/product/firmware", SF1)
 
 	req, _ := http.NewRequest("GET", "http://jerf.org/home/product/firmware", nil)
-	ctx, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req)
+	ctx, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req, false)
 	rreq := newRequest(ctx)
 	result := sr.Route(rreq)
 	if result.Error != nil {
@@ -59,7 +59,7 @@ func TestMinimalFunctionality(t *testing.T) {
 	// Verify the static location must exactly match... oh, how many hours
 	// I've lost on failing to check this sort of thing...
 	req2, _ := http.NewRequest("GET", "http://jerf.org/home/product/firmwares", nil)
-	ctx2, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req2)
+	ctx2, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req2, false)
 	rreq2 := newRequest(ctx2)
 	result = sr.Route(rreq2)
 	if result.Handler != nil {
@@ -86,7 +86,7 @@ func TestTreeOfLocations(t *testing.T) {
 	l1.AddLocationReturn("/test2", SF2)
 
 	req, _ := http.NewRequest("GET", "http://jerf.org/test1/test2", nil)
-	ctx, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req)
+	ctx, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req, false)
 	rreq := newRequest(ctx)
 	result := sr.Route(rreq)
 	if result.Error != nil {
@@ -102,7 +102,7 @@ func TestLocationForward(t *testing.T) {
 	sr.AddLocationForward("/", SF1)
 
 	req, _ := http.NewRequest("GET", "http://jerf.org/anything/goes", nil)
-	ctx, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req)
+	ctx, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req, false)
 	rreq := newRequest(ctx)
 	result := sr.Route(rreq)
 	if result.Error != nil {

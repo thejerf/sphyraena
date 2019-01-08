@@ -178,10 +178,15 @@ func (rs *RAMSession) NewStream() (*strest.Stream, error) {
 }
 
 func (rs *RAMSession) GetStream(signedSid []byte) (*strest.Stream, error) {
+	fmt.Println("Getting stream", string(signedSid))
+	if len(signedSid) == 0 {
+		panic("GetStream with no stream ID")
+	}
 	sid, err := rs.UnwrapAuthentication(signedSid)
 	if err != nil {
 		// return an error indistinguishable from the 'not found' case on
 		// purpose, to not leak whether the signature was correct.
+		fmt.Println("Authentication unwrap failed", err)
 		return nil, ErrStreamNotFound
 	}
 	rs.Lock()

@@ -19,14 +19,7 @@ type UTF8Stream struct {
 	fromUser chan strest.EventFromUser
 }
 
-// FIXME: Timeouts
-
 // FIXME: Document EXACTLY what this is.
-
-// FIXME: This is going to end up with too much web-client stream handling
-// logic in it. This should be refactored away so that the client-side
-// stream handling logic sits between this raw driver and the Stream
-// abstraction on the server side. But for now we'll hard-code.
 
 // NewUTF8Stream returns a constructed UTF8Stream object. This also begins
 // executing the corresponding goroutines.
@@ -57,7 +50,7 @@ func (s *UTF8Stream) Channels() (chan strest.EventToUser, chan strest.EventFromU
 // sample length-delimited string on an arbitrary reader & writer sample.
 type UTF8StreamDriver interface {
 	// Receive one text frame.
-	Receive() (string, error)
+	Receive() ([]byte, error)
 
 	// Send one text frame.
 	Send(string) error

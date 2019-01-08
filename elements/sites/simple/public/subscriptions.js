@@ -18,6 +18,7 @@ function stRestSession (url, sessionID) {
     this.idincr = 1;
     this.requests = {};
     this.resources = {};
+    this.sessionID = sessionID;
 
     this.unsubscribedHandler = function (e) {
         strestLogger("Unhandled event: " + e.data);
@@ -32,7 +33,7 @@ stRestSession.prototype._connect = function () {
 
     this.connecting = true;
 
-    this.ws = new SockJS(this.url);
+    this.ws = new SockJS(this.url + "?stream_id=" + encodeURIComponent(this.sessionID));
 
     this.ws.onopen = function (event) {
         self.connected = true;
@@ -105,22 +106,23 @@ stRestSession.prototype._connect = function () {
     };
 }
 
-stRestSession.prototype._rawSendJSON = function (json) {
+stRestSession.prototype._rawSendJSON = function (type, json) {
     if (this.connected) {
         var jsonString = JSON.stringify(json);
         strestLogger("Sending json: " + jsonString);
-        this.ws.send(jsonString);
+        this.ws.send(String.fromCharCode(type.length) + type + jsonString);
     } else {
-        this.buffered.push(json);
+        this.buffered.push([type, json]);
         this._initiateConnection()
     }
 }
 
 stRestSession.prototype._sendBuffered = function () {
     for (var idx in this.buffered) {
-        var jsonString = JSON.stringify(this.buffered[idx]);
+        var type = this.buffered[idx][0];
+        var jsonString = JSON.stringify(this.buffered[idx][1]);
         strestLogger("Sending buffered JSON: " + jsonString);
-        this.ws.send(jsonString);
+        this.ws.send(String.fromCharCode(type.length) + type + jsonString);
     }
     this.buffered = [];
 }
@@ -171,7 +173,7 @@ resource.prototype.get = function(arguments) {
     var request_id = this.stRestSession.idincr++;
     var httpRequest = {method: "GET", url: this.url, header: header, body: "",
                        request_id: request_id};
-    this.stRestSession._rawSendJSON({type: "request", message: httpRequest});
+    this.stRestSession._rawSendJSON("request", httpRequest);
 
     // FIXME: What to do about outstanding requests?
     this.stRestSession.requests[request_id] = this;
@@ -212,11 +214,14 @@ resource.prototype.postForm = function (params, header) {
     if (header == undefined) {
         header = {};
     }
+    var request_id = this.stRestSession.idincr++;
+
     header["Content-Type"] = ["application/x-www-form-urlencoded"]
 
-    var httpRequest = {method: "POST", header: header, body: textBody}
+    var httpRequest = {method: "POST", header: header, body: textBody,
+                       request_id: request_id};
 
-    this.stRestSession._rawSendJSON({id: this.id, type: "request", message: httpRequest})
+    this.stRestSession._rawSendJSON("request", httpRequest)
 }
 
 

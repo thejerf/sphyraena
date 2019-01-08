@@ -1,6 +1,8 @@
 package router
 
 import (
+	"fmt"
+
 	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/sphyrw"
 )
@@ -16,6 +18,7 @@ func (sr *SphyraenaRouter) runInGoroutine(handler request.Handler, rw *sphyrw.Sp
 	done := make(chan interface{})
 	rw.SetCompletionChan(done)
 	req.RunningAsGoroutine = true
+	fmt.Println("Done chan:", done)
 
 	go func() {
 		defer func() {
@@ -28,7 +31,9 @@ func (sr *SphyraenaRouter) runInGoroutine(handler request.Handler, rw *sphyrw.Sp
 		rw.Finish()
 	}()
 
+	fmt.Println("Waiting for done chan:", done)
 	panicReason := <-done
+	fmt.Println("Got completed thing, terminating web request")
 	if panicReason != nil {
 		panic(panicReason)
 	}

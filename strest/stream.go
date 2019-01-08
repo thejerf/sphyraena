@@ -2,6 +2,11 @@
 
 Package strest contains the "streaming rest" support code.
 
+FIXME: I have to separate out REST handlers and streaming handlers;
+handling the same thing on the same URL will be handled by the router.
+So this package should be the streaming support package. But it needs to be
+renamed from "strest" to just "streaming"; there is no longer a distinction.
+
 As of this writing, it is not clear exactly what this package really is.
 The code in it is definitely good and needs to live somewhere, but the
 concept of a "stream REST resource" is continuing to be boiled farther
@@ -13,6 +18,7 @@ package strest
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 )
@@ -158,27 +164,18 @@ func (s *Stream) serve() {
 		s.cleanup()
 	}()
 
+	fmt.Println("In stream serve")
+
 	sendingToUser := chan EventToUser(nil)
 	msgs := []*EventToUser{}
 	nilEventToUser := &EventToUser{}
 	var nextMessage *EventToUser
 	for {
-		// this is "clever", in perhaps both the good and the bad senses.
-		// When we get a request to send a message, we can not simply do a
-		// channel send to the outgoing user channel, because we must also
-		// witness whether the incoming channel gets closed due to stream
-		// termination. So rather than using s.toUser directly in the
-		// select, we instead wrap it in another channel value. When we
-		// have something to send, we set this channel to the toUser
-		// channel so the select statement picks it up. If we have nothing
-		// to send, we set it to nil, and the select won't consider it.
-		// This way, the select picks up the closed fromUser either way,
-		// and once we see that it is closed, we also stop trying to use
-		// it.
-		//
-		// Also, if the stream is not yet established fully, s.toUser will
-		// be nil itself, so messages will accumulate immediately, meaning
-		// that substreams do not need to worry about startup delays.
+		fmt.Println("Select loop")
+		// This adapts the fairly standard idiom in Go of setting a
+		// possibly-interesting channel in a select to nil if it isn't
+		// interesting right now to include the message to send on that
+		// channel, if possible.
 		if len(msgs) == 0 {
 			nextMessage = nilEventToUser
 			sendingToUser = nil
@@ -243,6 +240,8 @@ func (s *Stream) serve() {
 			if !ok {
 				return
 			}
+
+			fmt.Printf("Received incoming message: %#v\n", incoming)
 
 			dest := incoming.Dest
 			ss, hasStream := s.streamMembers[dest]
@@ -400,4 +399,10 @@ func (s *Stream) Substream() (*Substream, error) {
 		return nil, err
 	}
 	return &Substream{ss}, nil
+}
+
+type Streams interface {
+	SubstreamToUser() (*SendOnlySubstream, error)
+	SubstreamFromUser() (*ReceiveOnlySubstream, error)
+	Substream() (*Substream, error)
 }

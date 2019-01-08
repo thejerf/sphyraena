@@ -27,6 +27,7 @@ func StreamingRESTHandler(
 ) request.HandlerFunc {
 	sockjsHandler := sockjssrv.NewHandler(prefix, options,
 		func(sjs sockjssrv.Session) {
+			fmt.Println("Serving session handler")
 			origReq := sjs.Request()
 			reqURL := origReq.URL
 			values := reqURL.Query()
@@ -39,29 +40,34 @@ func StreamingRESTHandler(
 				mySession.Identity(),
 			)
 
+			fmt.Printf("My session: %#v\n", mySession)
 			stream, err := mySession.GetStream([]byte(streamID))
 			if err != nil {
 				// FIXME: Log properly
-				fmt.Println("Failed to find session", string(streamID))
+				fmt.Println("Failed to find stream |", string(streamID), "|")
 				return
 			}
 
 			// now take the stream over
 			stream.SetExternalStream(u8s)
+
+			fmt.Println("Falling off the bottom of the sockjs handler")
+
+			u8s.Serve()
 		})
 
 	handler := func(
 		rw *sphyrw.SphyraenaResponseWriter,
 		req *request.Request,
 	) {
+		fmt.Println("Got request for socket")
 		session := req.Session()
-		req.Request = req.Request.WithContext(
-			context.WithValue(
-				req.Context(),
-				sockjskey("session"),
-				session,
-			),
+		desiredContext := context.WithValue(
+			req.Context(),
+			sockjskey("session"),
+			session,
 		)
+		req.Request = req.Request.WithContext(desiredContext)
 		sockjsHandler.ServeHTTP(rw, req.Request)
 	}
 
@@ -76,8 +82,9 @@ func (sjd sockJSDriver) Close() error {
 	return sjd.sess.Close(0, "closed")
 }
 
-func (sjd sockJSDriver) Receive() (string, error) {
-	return sjd.sess.Recv()
+func (sjd sockJSDriver) Receive() ([]byte, error) {
+	s, err := sjd.sess.Recv()
+	return []byte(s), err
 }
 
 func (sjd sockJSDriver) Send(s string) error {
