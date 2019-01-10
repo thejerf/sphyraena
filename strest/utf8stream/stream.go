@@ -6,7 +6,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/thejerf/sphyraena/identity"
+	"github.com/thejerf/sphyraena/identity/session"
+	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/router"
 	"github.com/thejerf/sphyraena/strest"
 )
@@ -17,6 +18,10 @@ type UTF8Stream struct {
 	sd       UTF8StreamDriver
 	toUser   chan strest.EventToUser
 	fromUser chan strest.EventFromUser
+	session  session.Session
+	stream   *strest.Stream
+	ss       request.SphyraenaState
+	router   *router.SphyraenaRouter
 }
 
 // FIXME: Document EXACTLY what this is.
@@ -27,11 +32,19 @@ type UTF8Stream struct {
 // sd is a StreamDriver that is hooked up and ready to start streaming.
 // The SphyraenaRouter is the top-level router for the requests. identity
 // is the known identity of the current stream.
-func NewUTF8Stream(sd UTF8StreamDriver, sr *router.SphyraenaRouter, identity *identity.Identity) *UTF8Stream {
+func NewUTF8Stream(
+	sd UTF8StreamDriver,
+	sess session.Session,
+	stream *strest.Stream,
+	ss request.SphyraenaState,
+) *UTF8Stream {
 	return &UTF8Stream{
 		sd,
 		make(chan strest.EventToUser),
 		make(chan strest.EventFromUser),
+		sess,
+		stream,
+		ss,
 	}
 }
 

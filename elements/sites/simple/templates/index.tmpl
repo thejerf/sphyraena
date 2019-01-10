@@ -8,11 +8,10 @@
 
 streamID = "{{ .StreamID }}";
 session = new stRestSession("/socket/", streamID);
-counter = session.resource("/samplerest/",
-    function(response) { console.log("Response: " + response) },
+counter = session.substream("/samplerest/",
     function(event) { console.log("Event: " + event) }
     )
-counter.get({});
+counter.open({});
 
 </script>
 

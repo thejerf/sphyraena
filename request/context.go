@@ -6,6 +6,7 @@ package request
 import (
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/thejerf/sphyraena/identity"
@@ -26,14 +27,20 @@ type SphyraenaState struct {
 	defaultIdentity func() *identity.Identity
 }
 
-// development notes:
-// it would be nice if the context couldn't be meaningfully written to by
-// RoutingClauses, since that's pretty much an error waiting to happen. As
-// I write this, a casual examination of the Context suggests that the only
-// thing that you can write to is the google Context elements, which
-// suggests we might be able to wrap this simply via a conversion into a
-// type that doesn't offer that functionality. Currently waiting-and-seeing
-// to see what all the Context ends up with before it's all said and done.
+// FromStream allows the creation of requests from streams, where the
+// current stream and session are already known.
+func FromStream(
+	session session.Session,
+	stream *strest.Stream,
+	handleInitialResponse func(StreamRequestResult),
+) *Request {
+	return &Request{
+		session:               session,
+		currentStream:         stream,
+		isStreaming:           true,
+		handleInitialResponse: handleInitialResponse,
+	}
+}
 
 // Request is the Sphyraena-specific request for Sphyraena.
 //
@@ -56,11 +63,9 @@ type Request struct {
 	// FIXME: Probably broken, use context properly instead
 	values map[interface{}]interface{}
 
-	// FIXME: Used anywhere? Probably nonsensical.
 	currentStream *strest.Stream
 
-	// FIXME: Remove. Streamability is now determined by the request type.
-	canStream bool
+	isStreaming bool
 
 	// hack for now. Making it something public the user can screw with is
 	// a code smell. FIXME this ought to come in the form of providing a
@@ -71,23 +76,28 @@ type Request struct {
 	// FIXME: This can be entirely removed now, because we're going to run
 	// StreamHandlers in goroutines.
 	RunningAsGoroutine bool
+
+	// This handles the initial response to the stream, which may include a
+	// complete failure to initiate due to being not found, etc. FIXME:
+	// Simply opening a stream directly should automatically handle this,
+	// if possible, as well as the HandleStream call returning without
+	// having initiated any stream.
+	hrOnce                sync.Once
+	handleInitialResponse func(StreamRequestResult)
 }
 
-// Session retrieves the current session for the session.
 func (c *Request) Session() session.Session {
 	return c.session
 }
 
-// CanHandleStream returns whether or not this request can handle a stream
-// going back to it.
-//
-// Requests that come in through normal HTTP can not be streamed, or at
-// least, not in the sense that Sphyraena means. ("Normal" HTTP streaming,
-// where you just send a request slowly over time, is supported in the same
-// way net/http supports it.) Only requests that come in a way that is
-// known by the framework to be able to handle streams can be streamed.
-func (c *Request) CanHandleStream() bool {
-	return c.canStream
+func (c *Request) StreamResponse(srr StreamRequestResult) {
+	c.hrOnce.Do(func() { c.handleInitialResponse(srr) })
+}
+
+// IsStreaming indicates whether the request is a streaming request or a
+// conventional HTTP request.
+func (c *Request) IsStreaming() bool {
+	return c.isStreaming
 }
 
 // SetSession sets the session for the current context.
@@ -168,7 +178,7 @@ func NewSphyraenaState(ss session.SessionServer, defaultIdentity func() *identit
 func (ss *SphyraenaState) NewRequest(
 	rw http.ResponseWriter,
 	req *http.Request,
-	canStream bool,
+	isStreaming bool,
 ) (*Request, *sphyrw.SphyraenaResponseWriter) {
 	// For now, put all requests into the same session
 	var failedCookies []string
@@ -194,6 +204,6 @@ func (ss *SphyraenaState) NewRequest(
 		session:        session.AnonymousSession,
 		Cookies:        cookies,
 		values:         map[interface{}]interface{}{},
-		canStream:      canStream,
+		isStreaming:    isStreaming,
 	}, srw
 }

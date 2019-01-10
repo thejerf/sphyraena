@@ -134,52 +134,35 @@ stRestSession.prototype._initiateConnection = function () {
     this._connect();
 }
 
-stRestSession.prototype.resource = function(url, responseHandler, eventHandler) {
-    return new resource(url, this, responseHandler, eventHandler);
+stRestSession.prototype.substream = function(url, eventHandler) {
+    return new substream(url, this, eventHandler);
 }
 
-// a "resource" represents a resource that we may be streaming.
+// a "substream" represents a particular substream we may be following.
 //
 // This resource is "dead" in the sense that calling this function does
 // nothing; you must "get" or something to it.
 //
-// the responseHandler responds to the initial response, which is likely
-// enough to be significantly different from an event stream that we need
-// to give it its own handler.
-//
-// eventHandler handles incoming events. If null, the REST request should
-// not actually subscribe. Eventually I hope to make the API such that the
-// presence or absence of this "event handler" is the only frontend-visible
-// distinction between a "streaming" request and a static one.
-//
-// As for the semantics of a resource: A resource always corresponds to a
-// single URL, and that single URL is that resource. Resource authors are
-// expected to make this function properly. Resources can rename themselves
-// via redirections, including dynamically in the event stream via events
-// that the framework itself can process. This URL functions as its ID.
-// Due to the fact that URLs can change on a given resource due to
-// redirects, we still need an ID internally that we can use to route
-// requests to and from this resource stably.
-function resource(url, stRestSession, responseHandler, eventHandler) {
+// eventHandler handles incoming events.
+function substream(url, stRestSession, eventHandler) {
     this.url = url;
     this.stRestSession = stRestSession;
-    this.responseHandler = responseHandler;
     this.eventHandler = eventHandler;
     this.id = undefined;
 }
 
-resource.prototype.get = function(arguments) {
+substream.prototype.open = function(arguments) {
     var header = {};
     var request_id = this.stRestSession.idincr++;
     var httpRequest = {method: "GET", url: this.url, header: header, body: "",
                        request_id: request_id};
-    this.stRestSession._rawSendJSON("request", httpRequest);
+    this.stRestSession._rawSendJSON("new_stream", httpRequest);
 
     // FIXME: What to do about outstanding requests?
     this.stRestSession.requests[request_id] = this;
 }
 
-resource.prototype.handleResponse = function(response) {
+substream.prototype.handleResponse = function(response) {
     strestLogger("Got a response, handling...");
     if (this.responseHandler) {
         strestLogger("Found handler");
@@ -189,7 +172,7 @@ resource.prototype.handleResponse = function(response) {
     }
 }
 
-resource.prototype.handleEvent = function(event) {
+substream.prototype.handleEvent = function(event) {
     if (this.eventHandler) {
         return this.eventHandler(event);
     } else {
@@ -197,31 +180,7 @@ resource.prototype.handleEvent = function(event) {
     }
 }
 
-resource.prototype.unsubscribe = function () {
+substream.prototype.unsubscribe = function () {
     this.stRestSession.unsubscribe(this.url)
 }
-
-// We also have an open communication channel with the resources we are
-// tracking, so we can directly route REST requests to them without the
-// need to route.
-resource.prototype.postForm = function (params, header) {
-    var body = [];
-
-    for (var key in params) {
-        body.push(encodeURIComponent(key) + "=" + encodeURIComponent(params[key]))
-    }
-    var textBody = body.join("&");
-    if (header == undefined) {
-        header = {};
-    }
-    var request_id = this.stRestSession.idincr++;
-
-    header["Content-Type"] = ["application/x-www-form-urlencoded"]
-
-    var httpRequest = {method: "POST", header: header, body: textBody,
-                       request_id: request_id};
-
-    this.stRestSession._rawSendJSON("request", httpRequest)
-}
-
 

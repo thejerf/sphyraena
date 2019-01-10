@@ -1,24 +1,27 @@
 package request
 
 import (
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/thejerf/sphyraena/strest"
 )
 
 // FIXME: Eventually needs a context
 
-type StreamRequest struct {
-	*SphyraenaState
-	*RouteResult
-	session session.Session
-
-	arguments []byte
+type StreamRequestResult struct {
+	StreamID  strest.StreamID `json:"stream_id,omitempty"`
+	Error     string          `json:"error,omitempty"`
+	ErrorCode int             `json:"error_code,omitempty"`
 }
 
 // A StreamHandler implements something that returns a stream handler, and
 // will be run in a separate goroutine to handle the stream.
 type StreamHandler interface {
-	HandleStream(*StreamRequest)
+	HandleStream(*Request)
+}
+
+type StreamHandlerFunc func(*Request)
+
+func (shf StreamHandlerFunc) HandleStream(req *Request) {
+	shf(req)
 }
 
 // Request methods for dealing with streams.

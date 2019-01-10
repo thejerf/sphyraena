@@ -84,6 +84,8 @@ func (rc ReturnClause) Prototype() RouterClause {
 //
 // When writing routes, you should consider ReturnClauses the thing you use
 // by default, until you find you need a ForwardClause.
+//
+// FIXME: Match documentation to the name of the handler.
 type ForwardClause struct {
 	request.Handler
 }
@@ -109,4 +111,31 @@ func (rc ForwardClause) GetRouteBlock() *RouteBlock {
 
 func (rc ForwardClause) Prototype() RouterClause {
 	return ForwardClause{nil}
+}
+
+// A StreamClause returns a constant StreamingHandler, even if the path is
+// not fully consumed, thus passing it along to the handler.
+type StreamClause struct {
+	request.StreamHandler
+}
+
+func (sc StreamClause) Route(*Request) (res Result) {
+	res.StreamHandler = sc.StreamHandler
+	return
+}
+
+func (sc StreamClause) Name() string {
+	return "stream"
+}
+
+func (sc StreamClause) Argument() string {
+	return ""
+}
+
+func (sc StreamClause) GetRouteBlock() *RouteBlock {
+	return nil
+}
+
+func (sc StreamClause) Prototype() RouterClause {
+	return StreamClause{}
 }

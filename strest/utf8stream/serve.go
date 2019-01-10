@@ -3,6 +3,8 @@ package utf8stream
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/thejerf/sphyraena/request"
 )
 
 func (s *UTF8Stream) Serve() error {
@@ -38,8 +40,35 @@ func (s *UTF8Stream) Serve() error {
 		msg = msg[1+len:]
 
 		switch ty {
-		case "request":
+		case "new_stream":
 			fmt.Println("Seeing a new request come in:", string(msg))
+			httpreq := HTTPRequest{}
+			err := json.Unmarshal(msg, &httpreq)
+			if err != nil {
+				// FIXME: Do something better
+				fmt.Println("Error unmarshaling msg:", err)
+				continue
+			}
+
+			r, err := httpreq.ToRequest()
+			if err != nil {
+				// FIXME: do something better
+				fmt.Println("Error converting to request:", err)
+				continue
+			}
+
+			req := request.FromStream(
+				s.session,
+				s.stream,
+				func(srr request.StreamRequestResult) {
+
+				},
+			)
+			req.SphyraenaState = &s.ss
+			req.Request = r
+
+			go s.router.RunStreamingRoute(req)
+
 		default:
 			fmt.Println("Unknown request type:", ty)
 		}

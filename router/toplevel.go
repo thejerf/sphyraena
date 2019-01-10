@@ -1,12 +1,17 @@
 package router
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/sphyrw"
 	"github.com/thejerf/sphyraena/sphyrw/hole"
 )
+
+// FIXME: Probably needs to live somewhere else
+
+var ErrStreamHandlerNotFound = errors.New("stream handler not found")
 
 // This package defines the top-level router that defines a Sphyraena
 // application. It may someday come out of this module.
@@ -37,10 +42,9 @@ func (sr *SphyraenaRouter) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 	sr.RunRoute(srw, ctx)
 }
 
-// this can be recursively called to re-run a route when something about
-// the request has changed.
+// RunRoute runs the given route with an HTTP request (not a streaming request).
 func (sr *SphyraenaRouter) RunRoute(rw *sphyrw.SphyraenaResponseWriter, req *request.Request) {
-	streamingHandler, routeResult, err := sr.getStrest(req)
+	handler, routeResult, err := sr.getHTTPHandler(req)
 	if err != nil {
 		// FIXME: need to do something different
 		panic(err.Error())
@@ -50,7 +54,7 @@ func (sr *SphyraenaRouter) RunRoute(rw *sphyrw.SphyraenaResponseWriter, req *req
 	// routeResult is ignored, which is probably good from a security POV.
 	// Though as SphyRW gets stronger and starts returning things, maybe
 	// that will be less true.
-	if streamingHandler == nil {
+	if handler == nil {
 		http.NotFound(rw, req.Request)
 		return
 	}
@@ -71,27 +75,52 @@ func (sr *SphyraenaRouter) RunRoute(rw *sphyrw.SphyraenaResponseWriter, req *req
 	// priority over the handlers.
 	hole.ApplySecurityHeaders(rw.Header(), routeResult.Holes)
 
-	// If either the handler, or the request, can't handle streaming, run
-	// the request directly under the net/http handler as usual (no spawned
-	// goroutine).
-	mayStream, hasMayStream := streamingHandler.(request.MayStream)
-	if (hasMayStream && mayStream.MayStream() == false) ||
-		!req.CanHandleStream() {
-		req.RunningAsGoroutine = false
-		streamingHandler.ServeStreaming(rw, req)
+	handler.ServeStreaming(rw, req)
+}
+
+func (sr *SphyraenaRouter) RunStreamingRoute(req *request.Request) {
+	// FIXME: This MUST handle panics!
+	handler, routeResult, err := sr.getStreamingHandler(req)
+	if err != nil {
+		req.StreamResponse(request.StreamRequestResult{
+			Error:     ErrStreamHandlerNotFound.Error(),
+			ErrorCode: 404,
+		})
 		return
 	}
 
-	// If both the request and the handler can handle streaming, then go
-	// ahead and do it.
-	sr.runInGoroutine(streamingHandler, rw, req)
+	req.RouteResult = routeResult
+	// apply security holes here?
+
+	handler.HandleStream(req)
+
+	// FIXME: If we get here and no stream was opened we should emit an
+	// error to the initial response handler.
 }
 
 // this is primarily broken out for the tests
-func (sr *SphyraenaRouter) getStrest(req *request.Request) (request.Handler, *request.RouteResult, error) {
+func (sr *SphyraenaRouter) getHTTPHandler(req *request.Request) (request.Handler, *request.RouteResult, error) {
 	routerRequest := newRequest(req)
 
 	result := sr.Route(routerRequest)
 
+	if result.Handler == nil {
+		return nil, nil, nil
+	}
+
 	return result.Handler, routerRequest.routeResult(), result.Error
+}
+
+func (sr *SphyraenaRouter) getStreamingHandler(req *request.Request) (
+	request.StreamHandler,
+	*request.RouteResult,
+	error,
+) {
+	routerRequest := newRequest(req)
+	result := sr.Route(routerRequest)
+	if result.StreamHandler == nil {
+		return nil, nil, nil
+	}
+
+	return result.StreamHandler, routerRequest.routeResult(), result.Error
 }

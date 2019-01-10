@@ -283,11 +283,12 @@ type Router interface {
 // A Result is the result of calling a Route operation.
 type Result struct {
 	request.Handler
+	request.StreamHandler
 	*RouteBlock
 	Error error
 }
 
-var emptyResult = Result{nil, nil, nil}
+var emptyResult = Result{nil, nil, nil, nil}
 
 // A RouterClause is something that can route, and also has sufficient
 // metadata to reconstruct itself when being audited or serialized.
@@ -351,7 +352,7 @@ func (rb *RouteBlock) Route(rr *Request) Result {
 
 	for _, router := range rb.clauses {
 		res := router.Route(rr)
-		if res.Handler != nil {
+		if res.Handler != nil || res.StreamHandler != nil {
 			return res
 		}
 		if res.RouteBlock != nil {
@@ -414,6 +415,12 @@ func (rb *RouteBlock) AddLocationReturn(path string, h request.Handler) {
 // ForwardClause directly to a given location.
 func (rb *RouteBlock) AddLocationForward(path string, h request.Handler) {
 	rb.Add(&StaticLocation{path, &RouteBlock{[]RouterClause{ForwardClause{h}}}})
+}
+
+// AddStreamForward is a simple convenience function to add a
+// ForwardClause directly to a given location.
+func (rb *RouteBlock) AddStreamForward(path string, h request.StreamHandler) {
+	rb.Add(&StaticLocation{path, &RouteBlock{[]RouterClause{StreamClause{h}}}})
 }
 
 // This implements the RouterClause interface in such a way that if you

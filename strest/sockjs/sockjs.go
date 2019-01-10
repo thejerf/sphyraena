@@ -19,6 +19,8 @@ var DefaultOptions = sockjssrv.DefaultOptions
 
 type sockjskey string
 
+// FIXME: Update the name here
+
 func StreamingRESTHandler(
 	prefix string,
 	sr *router.SphyraenaRouter,
@@ -34,14 +36,16 @@ func StreamingRESTHandler(
 			streamID := values.Get("stream_id")
 
 			mySession := origReq.Context().Value(sockjskey("session")).(session.Session)
+			my
+			fmt.Printf("My session: %#v\n", mySession)
+			stream, err := mySession.GetStream([]byte(streamID))
+
 			u8s := utf8stream.NewUTF8Stream(
 				sockJSDriver{sjs},
 				sr,
 				mySession.Identity(),
 			)
 
-			fmt.Printf("My session: %#v\n", mySession)
-			stream, err := mySession.GetStream([]byte(streamID))
 			if err != nil {
 				// FIXME: Log properly
 				fmt.Println("Failed to find stream |", string(streamID), "|")
@@ -64,9 +68,10 @@ func StreamingRESTHandler(
 		session := req.Session()
 		desiredContext := context.WithValue(
 			req.Context(),
-			sockjskey("session"),
-			session,
+			sockjskey("orig_req"),
+			req,
 		)
+
 		req.Request = req.Request.WithContext(desiredContext)
 		sockjsHandler.ServeHTTP(rw, req.Request)
 	}
