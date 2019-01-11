@@ -35,15 +35,22 @@ func StreamingRESTHandler(
 			values := reqURL.Query()
 			streamID := values.Get("stream_id")
 
-			mySession := origReq.Context().Value(sockjskey("session")).(session.Session)
-			my
+			origSphyReq := origReq.Context().Value(sockjskey("orig_sphy_req")).(*request.Request)
+			mySession := origSphyReq.Session()
 			fmt.Printf("My session: %#v\n", mySession)
 			stream, err := mySession.GetStream([]byte(streamID))
+			if err != nil {
+				// FIXME: Log properly
+				fmt.Println("Failed to get stream", streamID, ":", err)
+				return
+			}
 
 			u8s := utf8stream.NewUTF8Stream(
 				sockJSDriver{sjs},
+				origSphyReq.Session(),
+				stream,
+				origSphyReq.SphyraenaState,
 				sr,
-				mySession.Identity(),
 			)
 
 			if err != nil {
@@ -65,10 +72,9 @@ func StreamingRESTHandler(
 		req *request.Request,
 	) {
 		fmt.Println("Got request for socket")
-		session := req.Session()
 		desiredContext := context.WithValue(
 			req.Context(),
-			sockjskey("orig_req"),
+			sockjskey("orig_sphy_req"),
 			req,
 		)
 

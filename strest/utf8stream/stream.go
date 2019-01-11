@@ -20,7 +20,7 @@ type UTF8Stream struct {
 	fromUser chan strest.EventFromUser
 	session  session.Session
 	stream   *strest.Stream
-	ss       request.SphyraenaState
+	ss       *request.SphyraenaState
 	router   *router.SphyraenaRouter
 }
 
@@ -36,7 +36,8 @@ func NewUTF8Stream(
 	sd UTF8StreamDriver,
 	sess session.Session,
 	stream *strest.Stream,
-	ss request.SphyraenaState,
+	ss *request.SphyraenaState,
+	router *router.SphyraenaRouter,
 ) *UTF8Stream {
 	return &UTF8Stream{
 		sd,
@@ -45,6 +46,7 @@ func NewUTF8Stream(
 		sess,
 		stream,
 		ss,
+		router,
 	}
 }
 
@@ -88,7 +90,7 @@ type HTTPRequest struct {
 	Header http.Header `json:"header"`
 	Body   string      `json:"body"`
 
-	RequestID uint64 `json:"requestID"`
+	RequestID uint64 `json:"request_id"`
 }
 
 // ToRequest turns an incoming stream request into an HTTP request that can

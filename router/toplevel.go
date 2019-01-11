@@ -2,6 +2,7 @@ package router
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/thejerf/sphyraena/request"
@@ -79,9 +80,12 @@ func (sr *SphyraenaRouter) RunRoute(rw *sphyrw.SphyraenaResponseWriter, req *req
 }
 
 func (sr *SphyraenaRouter) RunStreamingRoute(req *request.Request) {
-	// FIXME: This MUST handle panics!
+	// FIXME: This MUST handle panics! It's being run as a top-level goroutine.
 	handler, routeResult, err := sr.getStreamingHandler(req)
-	if err != nil {
+	if err != nil || handler == nil {
+		if err != nil {
+			fmt.Println("Error getting the streaming handler:", err)
+		}
 		req.StreamResponse(request.StreamRequestResult{
 			Error:     ErrStreamHandlerNotFound.Error(),
 			ErrorCode: 404,
@@ -92,6 +96,7 @@ func (sr *SphyraenaRouter) RunStreamingRoute(req *request.Request) {
 	req.RouteResult = routeResult
 	// apply security holes here?
 
+	fmt.Println("Using handler:", handler)
 	handler.HandleStream(req)
 
 	// FIXME: If we get here and no stream was opened we should emit an

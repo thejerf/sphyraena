@@ -83,6 +83,12 @@ func PasswordAuthenticate(
 	r *request.Request,
 	options ...cookie.Option,
 ) (*cookie.OutCookie, error) {
+	// If the session is already set, we're authenticated via some other
+	// mechanism, like this being from a persistent web socket
+	if haveID, _ := r.Session().SessionID(); haveID {
+		return nil, nil
+	}
+
 	// FIXME: CSRF form protection
 	// FIXME: Which ideally shouldn't require a call here and/or can't be skipped
 	r.ParseForm()
@@ -92,7 +98,8 @@ func PasswordAuthenticate(
 
 	auth, authErr := pa.Authenticate(username, password)
 	if authErr != nil {
-		fmt.Printf("Got an auth error: %v\n", authErr)
+		// FIXME: Remove logging detail
+		fmt.Printf("Got an auth error: %v u %s p %s\n", authErr, username, password)
 		r.SetAuthError(authErr)
 		return nil, authErr
 	}

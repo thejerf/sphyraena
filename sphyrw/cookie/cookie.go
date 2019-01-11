@@ -195,6 +195,9 @@ type InCookies struct {
 
 // Count returns the number of cookies in this InCookies set.
 func (ic *InCookies) Count() int {
+	if ic == nil {
+		return 0
+	}
 	return len(ic.cookies)
 }
 
@@ -227,6 +230,9 @@ func (ic *InCookies) addInCookie(in *InCookie) {
 // cookies will not be returned, resulting in nil. To retrieve
 // non-authenticated cookies, use GetPossiblyUnauthenticated.
 func (ic *InCookies) Get(name string) *InCookie {
+	if ic == nil {
+		return nil
+	}
 	cookie := ic.cookies[name]
 	if cookie == nil {
 		return nil
@@ -240,6 +246,9 @@ func (ic *InCookies) Get(name string) *InCookie {
 // GetPossiblyUnauthenticated will retrieve the given InCookie by name
 // regardless of its validation status.
 func (ic *InCookies) GetPossiblyUnauthenticated(name string) *InCookie {
+	if ic == nil {
+		return nil
+	}
 	return ic.cookies[name]
 }
 
@@ -275,7 +284,7 @@ func (ic InCookies) GoString() string {
 //
 // The second return value is the set of cookies that failed
 // authentication. Sphyraena will automatically serve Set-Cookie headers to
-// attempt to delete these cookies.
+// attempt to expire these cookies.
 //
 // The last value is nil if there was no valid session ID, or a pointer to
 // a string containing the session ID if it is valid.

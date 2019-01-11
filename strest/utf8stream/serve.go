@@ -42,6 +42,7 @@ func (s *UTF8Stream) Serve() error {
 		switch ty {
 		case "new_stream":
 			fmt.Println("Seeing a new request come in:", string(msg))
+			// FIXME: Rename this to stream request or something, it's not HTTP
 			httpreq := HTTPRequest{}
 			err := json.Unmarshal(msg, &httpreq)
 			if err != nil {
@@ -61,16 +62,43 @@ func (s *UTF8Stream) Serve() error {
 				s.session,
 				s.stream,
 				func(srr request.StreamRequestResult) {
-
+					err := sendJSON(s, StreamMessage{
+						Type: "new_stream_response",
+						ID:   httpreq.RequestID,
+						Data: srr,
+					})
+					if err != nil {
+						// FIXME: Log better
+						fmt.Println("Couldn't send stream response:", err)
+					}
 				},
 			)
-			req.SphyraenaState = &s.ss
+			req.SphyraenaState = s.ss
 			req.Request = r
 
+			fmt.Println("Using router:", s.router)
 			go s.router.RunStreamingRoute(req)
 
 		default:
 			fmt.Println("Unknown request type:", ty)
 		}
 	}
+}
+
+// FIXME: Is this already defined somewhere?
+
+type StreamMessage struct {
+	Type string      `json:"type"`
+	ID   uint64      `json:"response_to"`
+	Data interface{} `json:"data"`
+}
+
+func sendJSON(s *UTF8Stream, data interface{}) error {
+	marshaled, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Sending response:", string(marshaled))
+	return s.sd.Send(string(marshaled))
 }

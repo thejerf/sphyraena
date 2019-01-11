@@ -57,16 +57,20 @@ stRestSession.prototype._connect = function () {
             return;
         }
 
-        if (msg.type == "response") {
-            var requestID = msg.request_id;
+        if (msg.type == "new_stream_response") {
+            var requestID = msg.response_to;
             // FIXME; handle no requestID
             var res = self.requests[requestID];
             self.resources[msg.stream_id] = res;
-            strestLogger("Setting stream id " + msg.stream_id);
+            strestLogger(requestID);
+            strestLogger(self.requests);
+            strestLogger(res);
             delete self.requests[requestID];
 
             // FIXME: handle no registered request by that ID
-            res.handleResponse(msg.response);
+            // FIXME: this could be success or failure, tell difference
+            // FIXME: Timeouts.
+            res.handleSuccess(msg.response);
             return;
         }
 
@@ -144,10 +148,12 @@ stRestSession.prototype.substream = function(url, eventHandler) {
 // nothing; you must "get" or something to it.
 //
 // eventHandler handles incoming events.
-function substream(url, stRestSession, eventHandler) {
+function substream(url, stRestSession, eventHandler, onsuccess, onfail) {
     this.url = url;
     this.stRestSession = stRestSession;
     this.eventHandler = eventHandler;
+    this.onsuccess = onsuccess;
+    this.onfail = onfail;
     this.id = undefined;
 }
 
@@ -160,15 +166,26 @@ substream.prototype.open = function(arguments) {
 
     // FIXME: What to do about outstanding requests?
     this.stRestSession.requests[request_id] = this;
+    strestLogger(this.stRestSession.requests);
 }
 
-substream.prototype.handleResponse = function(response) {
+substream.prototype.handleSuccess = function(response) {
     strestLogger("Got a response, handling...");
-    if (this.responseHandler) {
+    if (this.onsuccess) {
         strestLogger("Found handler");
-        return this.responseHandler(response);
+        return this.onsuccess(response);
     } else {
         strestLogger(this.url + " got response but no handler provided");
+    }
+}
+
+substream.prototype.handleFail = function(error) {
+    strestLogger("Got an error for the stream, handling...");
+    if (this.onfail) {
+        strestLogger("Found handler");
+        return this,onfail(error);
+    } else {
+        strestLogger(this.url + " got failure but no handler provided");
     }
 }
 

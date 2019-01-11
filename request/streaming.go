@@ -1,6 +1,8 @@
 package request
 
 import (
+	"fmt"
+
 	"github.com/thejerf/sphyraena/strest"
 )
 
@@ -28,6 +30,7 @@ func (shf StreamHandlerFunc) HandleStream(req *Request) {
 
 func (c *Request) getStream() (*strest.Stream, error) {
 	if c.currentStream == nil {
+		fmt.Printf("Getting stream from session of type %T\n", c.session)
 		stream, err := c.session.NewStream()
 		if err != nil {
 			return nil, err
