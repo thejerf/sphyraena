@@ -72,8 +72,10 @@ package router
 // won't "stick".
 
 import (
+	"fmt"
 	"net/http"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/sphyrw/cookie"
 	"github.com/thejerf/sphyraena/sphyrw/hole"
@@ -353,13 +355,17 @@ func (rb *RouteBlock) Route(rr *Request) Result {
 	for _, router := range rb.clauses {
 		res := router.Route(rr)
 		if res.Handler != nil || res.StreamHandler != nil {
+			fmt.Println(res.StreamHandler, res.Handler)
 			return res
 		}
 		if res.RouteBlock != nil {
 			res2 := res.RouteBlock.Route(rr)
-			if res2.Handler != nil {
+			spew.Dump("Routing result:", res2)
+			if res2.Handler != nil || res2.StreamHandler != nil {
+				fmt.Println("Returning because", res2.Handler, res2.StreamHandler)
 				return res2
 			}
+			fmt.Println("Didn't return")
 			// by construction, RouteBlocks never return more RouteBlocks
 			if res2.RouteBlock != nil {
 				panic("RouteBlock.Route return a non-nil RouteBlock")

@@ -56,8 +56,10 @@ func main() {
 
 	ramSessionServer := session.NewRAMServer(
 		sessionIDGenerator, secretGenerator,
-		&session.RAMSessionSettings{time.Minute * 180, abtime.NewRealTime()})
-	r := router.New(request.NewSphyraenaState(ramSessionServer, nil))
+		&session.RAMSessionSettings{time.Minute * 180,
+			abtime.NewRealTime()})
+	ss := request.NewSphyraenaState(ramSessionServer, nil)
+	r := router.New(ss)
 
 	r.AddLocationForward("/public/", &dirserve.FileSystemServer{
 		FileSystem:          http.Dir(*baseloc + "/public/"),

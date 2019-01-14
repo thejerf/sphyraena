@@ -83,12 +83,6 @@ func PasswordAuthenticate(
 	r *request.Request,
 	options ...cookie.Option,
 ) (*cookie.OutCookie, error) {
-	// If the session is already set, we're authenticated via some other
-	// mechanism, like this being from a persistent web socket
-	if haveID, _ := r.Session().SessionID(); haveID {
-		return nil, nil
-	}
-
 	// FIXME: CSRF form protection
 	// FIXME: Which ideally shouldn't require a call here and/or can't be skipped
 	r.ParseForm()
@@ -133,6 +127,14 @@ func PasswordAuthenticate(
 }
 
 func (ca *CookieAuth) Route(r *router.Request) (res router.Result) {
+	// If the session is already set, we're authenticated via some other
+	// mechanism, like this being from a persistent web socket
+	if haveID, _ := r.Session().SessionID(); haveID {
+		// continue on through the resources protected by this session.
+		fmt.Println("\n\nAlready have an id")
+		return
+	}
+
 	sessionCookie := r.Request.Cookies.Get("session")
 
 	if sessionCookie == nil {

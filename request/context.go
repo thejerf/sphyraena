@@ -91,7 +91,11 @@ func (c *Request) Session() session.Session {
 }
 
 func (c *Request) StreamResponse(srr StreamRequestResult) {
-	c.hrOnce.Do(func() { c.handleInitialResponse(srr) })
+	c.hrOnce.Do(func() {
+		if c.handleInitialResponse != nil {
+			c.handleInitialResponse(srr)
+		}
+	})
 }
 
 // IsStreaming indicates whether the request is a streaming request or a

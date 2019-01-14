@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/thejerf/sphyraena/request"
 	"github.com/thejerf/sphyraena/sphyrw"
 	"github.com/thejerf/sphyraena/sphyrw/hole"
@@ -123,6 +124,7 @@ func (sr *SphyraenaRouter) getStreamingHandler(req *request.Request) (
 ) {
 	routerRequest := newRequest(req)
 	result := sr.Route(routerRequest)
+	spew.Dump("stream route result:", result)
 	if result.StreamHandler == nil {
 		return nil, nil, nil
 	}

@@ -2,6 +2,7 @@ package router
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/thejerf/sphyraena/request"
 )
@@ -120,7 +121,9 @@ type StreamClause struct {
 }
 
 func (sc StreamClause) Route(*Request) (res Result) {
+	fmt.Println("In stream clause")
 	res.StreamHandler = sc.StreamHandler
+	fmt.Println("Set stream handler:", res.StreamHandler)
 	return
 }
 
