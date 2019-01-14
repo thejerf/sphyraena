@@ -52,6 +52,8 @@ func New(args *Args) *Sphyraena {
 		args = &Args{}
 	}
 
+	// BUG(BNSEC-12345): argle bargle bargle!
+
 	if args.SessionIDGenerator == nil {
 		args.SessionIDGenerator = session.NewSessionIDGenerator(128, nil)
 	}

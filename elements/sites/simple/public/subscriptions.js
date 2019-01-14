@@ -70,7 +70,9 @@ stRestSession.prototype._connect = function () {
             // FIXME: handle no registered request by that ID
             // FIXME: this could be success or failure, tell difference
             // FIXME: Timeouts.
-            res.handleSuccess(msg.response);
+            strestLogger("Message:");
+            strestLogger(msg);
+            res.handleSuccess(msg.data);
             return;
         }
 
@@ -138,8 +140,8 @@ stRestSession.prototype._initiateConnection = function () {
     this._connect();
 }
 
-stRestSession.prototype.substream = function(url, eventHandler) {
-    return new substream(url, this, eventHandler);
+stRestSession.prototype.substream = function(url, eventHandler, onsuccess, onfail) {
+    return new substream(url, this, eventHandler, onsuccess, onfail);
 }
 
 // a "substream" represents a particular substream we may be following.
@@ -171,6 +173,7 @@ substream.prototype.open = function(arguments) {
 
 substream.prototype.handleSuccess = function(response) {
     strestLogger("Got a response, handling...");
+    strestLogger(this);
     if (this.onsuccess) {
         strestLogger("Found handler");
         return this.onsuccess(response);

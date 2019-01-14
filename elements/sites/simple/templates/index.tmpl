@@ -9,7 +9,8 @@
 streamID = "{{ .StreamID }}";
 session = new stRestSession("/socket/", streamID);
 counter = session.substream("/samplerest/",
-    function(event) { console.log("Event: " + event) }
+    function(event) { console.log("Event: " + event) },
+    function(response) { console.log("Success!"); console.log(response); },
     )
 counter.open({});
 
