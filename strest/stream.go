@@ -143,7 +143,7 @@ func NewStream(id StreamID) *Stream {
 		streamMembers:       map[SubstreamID]*substream{},
 		fromSubstreamToUser: make(chan EventToUser),
 		commands:            make(chan streamCommand),
-		nextSubstreamID:     SubstreamID(1), // FIXME: Randomize or something?
+		nextSubstreamID:     SubstreamID(2), // FIXME: Randomize or something?
 		fromUser:            nil,
 		toUser:              nil,
 		logger:              log.Printf,
@@ -370,6 +370,7 @@ func (s *Stream) getSubstream(canReceive bool) (*substream, error) {
 		return nil, err
 	}
 	ssret := <-c
+	fmt.Printf("Getting substream: %#v\n", ssret.ss)
 	return ssret.ss, ssret.err
 }
 

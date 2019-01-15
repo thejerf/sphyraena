@@ -25,6 +25,10 @@ type substream struct {
 	closed bool
 }
 
+func (ss *substream) SubstreamID() SubstreamID {
+	return ss.substreamID
+}
+
 func (ss *substream) close() error {
 	if ss.closed {
 		return ErrClosed

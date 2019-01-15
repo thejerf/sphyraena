@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/thejerf/sphyraena/request"
+	"github.com/thejerf/sphyraena/strest"
 )
 
 func (s *UTF8Stream) Serve() error {
@@ -31,6 +32,7 @@ func (s *UTF8Stream) Serve() error {
 		if err != nil {
 			// FIXME: error should go somewhere if it's not EOF
 			close(s.fromUser)
+			return err
 		}
 
 		// get the first byte to see how far to read
@@ -63,9 +65,10 @@ func (s *UTF8Stream) Serve() error {
 				s.stream,
 				func(srr request.StreamRequestResult) {
 					err := sendJSON(s, StreamMessage{
-						Type: "new_stream_response",
-						ID:   httpreq.RequestID,
-						Data: srr,
+						Type:        "new_stream_response",
+						ID:          httpreq.RequestID,
+						Data:        srr,
+						SubstreamID: srr.SubstreamID,
 					})
 					if err != nil {
 						// FIXME: Log better
@@ -86,11 +89,13 @@ func (s *UTF8Stream) Serve() error {
 }
 
 // FIXME: Is this already defined somewhere?
+// FIXME: Namespace the request IDs so we can tell the difference between them.
 
 type StreamMessage struct {
-	Type string      `json:"type"`
-	ID   uint64      `json:"response_to"`
-	Data interface{} `json:"data"`
+	Type        string             `json:"type"`
+	ID          uint64             `json:"response_to,omitempty"`
+	SubstreamID strest.SubstreamID `json:"substream_id"`
+	Data        interface{}        `json:"data"`
 }
 
 func sendJSON(s *UTF8Stream, data interface{}) error {

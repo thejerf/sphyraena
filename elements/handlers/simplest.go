@@ -15,6 +15,10 @@ func CounterOut(req *request.Request) {
 
 	stream, err := req.SubstreamToUser()
 
+	req.StreamResponse(request.StreamRequestResult{
+		SubstreamID: stream.SubstreamID(),
+	})
+
 	if err == nil {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()

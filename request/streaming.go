@@ -9,9 +9,9 @@ import (
 // FIXME: Eventually needs a context
 
 type StreamRequestResult struct {
-	StreamID  strest.StreamID `json:"stream_id,omitempty"`
-	Error     string          `json:"error,omitempty"`
-	ErrorCode int             `json:"error_code,omitempty"`
+	SubstreamID strest.SubstreamID `json:"substream_id,omitempty"`
+	Error       string             `json:"error,omitempty"`
+	ErrorCode   int                `json:"error_code,omitempty"`
 }
 
 // A StreamHandler implements something that returns a stream handler, and

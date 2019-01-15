@@ -60,13 +60,15 @@ stRestSession.prototype._connect = function () {
         }
 
         if (msg.type == "new_stream_response") {
+            strestLogger(self);
+            // the ID of the request for the new stream
             var requestID = msg.response_to;
+            // the stream ID that we have just created.
+            var streamID = msg.substream_id;
             // FIXME; handle no requestID
             var res = self.requests[requestID];
-            self.resources[requestID] = res;
-            strestLogger(requestID);
-            strestLogger(self.requests);
-            strestLogger(res);
+            strestLogger("Setting console stream " + streamID);
+            self.resources[streamID] = res;
             delete self.requests[requestID];
 
             // FIXME: handle no registered request by that ID
@@ -165,13 +167,20 @@ function substream(url, stRestSession, eventHandler, onsuccess, onfail) {
 substream.prototype.open = function(arguments) {
     var header = {};
     var request_id = this.stRestSession.idincr++;
+    // FIXME: Arguably, either POST or a custom verb should be
+    // used. Probably the latter, since this never flows through proxies or anything.
     var httpRequest = {method: "GET", url: this.url, header: header, body: "",
                        request_id: request_id};
+    this.stRestSession.requests[request_id] = this;
+    strestLogger("Set requests " + request_id);
     this.stRestSession._rawSendJSON("new_stream", httpRequest);
 
-    // FIXME: What to do about outstanding requests?
-    this.stRestSession.requests[request_id] = this;
+    // FIXME: timeouts
     strestLogger(this.stRestSession.requests);
+}
+
+substream.prototype.send = function(msg) {
+    
 }
 
 substream.prototype.handleSuccess = function(response) {
