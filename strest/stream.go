@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"runtime/debug"
 	"sync"
 )
 
@@ -69,6 +70,7 @@ type EventToUser struct {
 	Source  SubstreamID `json:"source"`
 	Close   bool        `json:"close,omitempty"`
 	Message interface{} `json:"message,omitempty"`
+	Type    string      `json:"type"`
 }
 
 // An ExternalStream is something from which the requisite channels can
@@ -159,7 +161,9 @@ func (s *Stream) serve() {
 	// FIXME: Some sort of timeout is probably called for.
 	defer func() {
 		if r := recover(); r != nil {
-			s.logger("Stream somehow actually crashed: %v", r)
+			st := debug.Stack()
+			s.logger("Stream somehow actually crashed: %v\n\nStack: %s", r,
+				string(st))
 		}
 		s.cleanup()
 	}()
@@ -216,6 +220,10 @@ func (s *Stream) serve() {
 			// than they are being received, the common case, this slice
 			// does not tend to itself generate garbage, re-using the
 			// same slot over and over
+			//
+			// FIXME: Some sort of large timeout should be set that checks
+			// whether the capacity of this slice is way too large, and
+			// releases things that are too large
 			if len(msgs) == 1 {
 				msgs = msgs[:0]
 			} else {
@@ -224,6 +232,7 @@ func (s *Stream) serve() {
 		case m := <-s.fromSubstreamToUser:
 			// FIXME: We need some sort of very high limit that says
 			// this is just too much right now.
+			m.Type = "event"
 			if m.Close {
 				ssID := m.Source
 				ss, haveSS := s.streamMembers[ssID]
@@ -246,7 +255,7 @@ func (s *Stream) serve() {
 			dest := incoming.Dest
 			ss, hasStream := s.streamMembers[dest]
 			if !hasStream {
-				msgs = append(msgs, &EventToUser{dest, true, nil})
+				msgs = append(msgs, &EventToUser{dest, true, nil, "event"})
 				continue
 			}
 

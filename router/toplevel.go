@@ -98,6 +98,9 @@ func (sr *SphyraenaRouter) RunStreamingRoute(req *request.Request) {
 	// apply security holes here?
 
 	fmt.Println("Using handler:", handler)
+
+	req.StreamResponse(request.StreamRequestResult{})
+
 	handler.HandleStream(req)
 
 	// FIXME: If we get here and no stream was opened we should emit an

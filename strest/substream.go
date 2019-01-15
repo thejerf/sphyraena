@@ -50,11 +50,11 @@ func (ss *substream) close() error {
 }
 
 func (ss *substream) message(msg interface{}) EventToUser {
-	return EventToUser{ss.substreamID, false, msg}
+	return EventToUser{ss.substreamID, false, msg, "event"}
 }
 
 func (ss *substream) closeMessage() EventToUser {
-	return EventToUser{ss.substreamID, true, nil}
+	return EventToUser{ss.substreamID, true, nil, "event"}
 }
 
 // A SendOnlySubstream is a Substream that only has Sending
@@ -76,7 +76,7 @@ func (sos *SendOnlySubstream) Send(msg interface{}) error {
 		return ErrClosed
 	}
 	select {
-	case sos.toUser <- EventToUser{sos.substreamID, false, msg}:
+	case sos.toUser <- EventToUser{sos.substreamID, false, msg, "event"}:
 		return nil
 	case _, _ = <-sos.fromUser:
 		// the only way this can happen for a SendOnlySubstream is if the

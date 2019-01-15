@@ -2,14 +2,14 @@
 
 <h2>Home Page</h2>
 
-<p>Counter: <span id="{{ .CounterSpan }}">unstarted</span></p>
+<p>Counter: <span id="{{ .CounterSpan }}">0</span></p>
 
 <script>
 
 streamID = "{{ .StreamID }}";
 session = new stRestSession("/socket/", streamID);
 counter = session.substream("/samplerest",
-    function(event) { console.log("Event: " + event) },
+    function(event) { document.getElementById("{{ .CounterSpan }}").innerHTML = event; },
     function(response) { console.log("Success!"); console.log(response); },
     )
 counter.open({});

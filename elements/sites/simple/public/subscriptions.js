@@ -47,13 +47,15 @@ stRestSession.prototype._connect = function () {
 
     this.ws.onmessage = function (e) {
         // FIXME: More robust error handling.
+        // FIXME: Harmonize .data vs. .message
         var msg = JSON.parse(e.data);
         strestLogger("Incoming: " + e.data);
         if (msg.type == "event") {
-            strestLogger("Getting stream id " + msg.stream_id);
-            var res = self.resources[msg.stream_id];
+            strestLogger("Getting source " + msg.source);
+            strestLogger(self.resources);
+            var res = self.resources[msg.source];
             // FIXME: handle missing resource
-            res.handleEvent(msg.data);
+            res.handleEvent(msg.message);
             return;
         }
 
@@ -61,7 +63,7 @@ stRestSession.prototype._connect = function () {
             var requestID = msg.response_to;
             // FIXME; handle no requestID
             var res = self.requests[requestID];
-            self.resources[msg.stream_id] = res;
+            self.resources[requestID] = res;
             strestLogger(requestID);
             strestLogger(self.requests);
             strestLogger(res);
@@ -141,7 +143,8 @@ stRestSession.prototype._initiateConnection = function () {
 }
 
 stRestSession.prototype.substream = function(url, eventHandler, onsuccess, onfail) {
-    return new substream(url, this, eventHandler, onsuccess, onfail);
+    var resource = new substream(url, this, eventHandler, onsuccess, onfail);
+    return resource;
 }
 
 // a "substream" represents a particular substream we may be following.
