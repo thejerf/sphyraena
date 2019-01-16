@@ -77,7 +77,7 @@ func main() {
 		hardCoded,
 	)
 	r.Add(cookieAuth)
-	r.AddStreamForward("/samplerest", request.StreamHandlerFunc(handlers.CounterOut))
+	r.AddStreamForward("/samplerest", request.StreamHandlerFunc(handlers.InteractiveCounterOut))
 	r.AddLocationForward("/socket/", sockjs.StreamingRESTHandler(
 		"/socket",
 		r,

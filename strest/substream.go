@@ -1,5 +1,7 @@
 package strest
 
+import "encoding/json"
+
 // A lot of the core streaming logic between the three substreams are the
 // same. close in particular is shared between all three. Also, it really
 // helps the Stream itself to have a concrete type that it can use to do
@@ -8,12 +10,13 @@ type substream struct {
 	// The stream owns the sending end of fromUser, so only it can close
 	// it.
 	toUser   chan EventToUser
-	fromUser chan interface{}
+	fromUser chan json.RawMessage
 
 	substreamID SubstreamID
-	// If this is true, the substream can receive. If false, the Stream
-	// will never send to this substream, instead immediately erroring out
-	// the send call with a CloseSubstream response.
+	// If this is true, the substream can receive messages from the
+	// user. If false, the Stream will never send to this substream,
+	// instead immediately erroring out the send call with a CloseSubstream
+	// response.
 	//
 	// The symmetric value is not necessary, as it is enforced by the type
 	// system. (We can't control whether the remote client attempts to send
@@ -113,7 +116,7 @@ func (sos *SendOnlySubstream) CloseMessage() EventToUser {
 //
 // Please note warning about correct use. It is always wrong to only use
 // one of these channels in a select.
-func (sos *SendOnlySubstream) RawChans() (<-chan interface{}, chan<- EventToUser) {
+func (sos *SendOnlySubstream) RawChans() (<-chan json.RawMessage, chan<- EventToUser) {
 	return sos.fromUser, sos.toUser
 }
 
@@ -130,7 +133,7 @@ func (ros *ReceiveOnlySubstream) Close() error {
 // ReceiveChan returns the channel that the Stream will send events in to,
 // if you prefer to use this substream as part of a select statement
 // instead of using the .Receive method.
-func (ros *ReceiveOnlySubstream) ReceiveChan() <-chan interface{} {
+func (ros *ReceiveOnlySubstream) ReceiveChan() <-chan json.RawMessage {
 	return ros.fromUser
 }
 
@@ -234,6 +237,6 @@ func (ss *Substream) CloseMessage() EventToUser {
 // that the FromUser channel will be closed. This is true even for
 // send-only substreams. Failure to check the EventFromUser channel for
 // being closed will cause hanging goroutine leaks.
-func (ss *Substream) RawChans() (<-chan interface{}, chan<- EventToUser) {
+func (ss *Substream) RawChans() (<-chan json.RawMessage, chan<- EventToUser) {
 	return ss.fromUser, ss.toUser
 }

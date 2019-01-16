@@ -3,6 +3,7 @@ package request
 import (
 	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/thejerf/sphyraena/strest"
 )
 
@@ -57,6 +58,8 @@ func (c *Request) StreamID() (strest.StreamID, error) {
 	return strest.StreamID(string(authedStreamID)), nil
 }
 
+// FIXME: This should issue the StreamResponse automatically
+
 func (c *Request) SubstreamFromUser() (*strest.ReceiveOnlySubstream, error) {
 	stream, err := c.getStream()
 	if err != nil {
@@ -81,5 +84,8 @@ func (c *Request) Substream() (*strest.Substream, error) {
 		return nil, err
 	}
 
-	return stream.Substream()
+	fmt.Println("****\n****\n*****\n\n*******")
+	ss, err := stream.Substream()
+	spew.Dump(ss)
+	return ss, err
 }

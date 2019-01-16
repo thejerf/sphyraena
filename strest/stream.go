@@ -17,6 +17,7 @@ and this may turn into some sort of "stream" package.
 package strest
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -56,12 +57,18 @@ type SubstreamID uint32
 // streams to Stream objects when necessary.
 type StreamID string
 
+// FIXME: Arguably, we want to stick the substream ID into the header, so
+// we can save the entire []byte of the rest of the message for the
+// ultimate destination. But this gets us going.
+
 // EventFromUser represents an incoming event from whatever is concretely
 // instantiating the stream.
 type EventFromUser struct {
-	Dest    SubstreamID `json:"dest"`
-	Close   bool        `json:"close,omitempty"`
-	Message interface{} `json:"message,omitempty"`
+	Dest  SubstreamID `json:"dest"`
+	Close bool        `json:"close,omitempty"`
+	// FIXME: Include a type field here maybe, so the RawMessage doesn't
+	// have to be reparsed yet again just for that?
+	Message json.RawMessage `json:"message,omitempty"`
 }
 
 // EventToUser represents an outgoing event from whatever is concretely
@@ -197,7 +204,7 @@ func (s *Stream) serve() {
 				ss := &substream{
 					substreamID: ssID,
 					toUser:      s.fromSubstreamToUser,
-					fromUser:    make(chan interface{}),
+					fromUser:    make(chan json.RawMessage),
 					canReceive:  msg.canReceive,
 				}
 				s.streamMembers[ssID] = ss
@@ -255,6 +262,7 @@ func (s *Stream) serve() {
 			dest := incoming.Dest
 			ss, hasStream := s.streamMembers[dest]
 			if !hasStream {
+				fmt.Println("Couldn't find receiver:", dest, s.streamMembers)
 				msgs = append(msgs, &EventToUser{dest, true, nil, "event"})
 				continue
 			}
@@ -267,15 +275,20 @@ func (s *Stream) serve() {
 				// a user-end bug; why would you ever "send" to something
 				// that isn't receiving? Since there's no "generic"
 				// protocol defined here, what would that even mean?
+				fmt.Println("Bailing out of message because substream",
+					ss, "can't receive")
+				fmt.Printf("Substream type: %T\n", ss)
 				continue
 			}
 
 			if incoming.Close {
 				close(ss.fromUser)
 				delete(s.streamMembers, dest)
+				fmt.Println("Closing stream")
 				continue
 			}
 
+			fmt.Println("Sending to substream fromUser")
 			ss.fromUser <- incoming.Message
 		}
 	}
@@ -398,6 +411,7 @@ func (s *Stream) SubstreamFromUser() (*ReceiveOnlySubstream, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &ReceiveOnlySubstream{ss}, nil
 }
 

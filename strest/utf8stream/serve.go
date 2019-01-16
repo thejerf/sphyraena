@@ -28,7 +28,7 @@ func (s *UTF8Stream) Serve() error {
 
 	for {
 		msg, err := s.sd.Receive()
-		fmt.Println(msg, err)
+		fmt.Println(string(msg), err)
 		if err != nil {
 			// FIXME: error should go somewhere if it's not EOF
 			close(s.fromUser)
@@ -42,6 +42,7 @@ func (s *UTF8Stream) Serve() error {
 		msg = msg[1+len:]
 
 		switch ty {
+		// FIXME: Should be "new_substream"
 		case "new_stream":
 			fmt.Println("Seeing a new request come in:", string(msg))
 			// FIXME: Rename this to stream request or something, it's not HTTP
@@ -81,6 +82,16 @@ func (s *UTF8Stream) Serve() error {
 
 			fmt.Println("Using router:", s.router)
 			go s.router.RunStreamingRoute(req)
+
+		case "event":
+			efu := strest.EventFromUser{}
+			err := json.Unmarshal(msg, &efu)
+			if err != nil {
+				// FIXME: Do something better
+				fmt.Println("Error unmarshaling event:", err)
+				continue
+			}
+			s.fromUser <- efu
 
 		default:
 			fmt.Println("Unknown request type:", ty)

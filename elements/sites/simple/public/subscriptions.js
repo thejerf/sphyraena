@@ -64,11 +64,12 @@ stRestSession.prototype._connect = function () {
             // the ID of the request for the new stream
             var requestID = msg.response_to;
             // the stream ID that we have just created.
-            var streamID = msg.substream_id;
+            var substream_id = msg.substream_id;
             // FIXME; handle no requestID
             var res = self.requests[requestID];
             strestLogger("Setting console stream " + streamID);
-            self.resources[streamID] = res;
+            self.resources[substream_id] = res;
+            res.substream_id = substream_id;
             delete self.requests[requestID];
 
             // FIXME: handle no registered request by that ID
@@ -161,7 +162,7 @@ function substream(url, stRestSession, eventHandler, onsuccess, onfail) {
     this.eventHandler = eventHandler;
     this.onsuccess = onsuccess;
     this.onfail = onfail;
-    this.id = undefined;
+    this.substream_id = undefined;
 }
 
 substream.prototype.open = function(arguments) {
@@ -180,7 +181,9 @@ substream.prototype.open = function(arguments) {
 }
 
 substream.prototype.send = function(msg) {
-    
+    this.stRestSession._rawSendJSON("event",
+                                    {dest: this.substream_id,
+                                     message: msg});
 }
 
 substream.prototype.handleSuccess = function(response) {

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os/exec"
@@ -161,15 +162,18 @@ func CommandResult(
 		select {
 		case msg, ok := <-incoming:
 			if !ok {
+				fmt.Println(msg)
 				// remote stream has closed, time to terminate everything.
 				return nil
 			}
-			switch msg.(type) {
-			case CmdTerminate:
-				return nil
-			default:
-				spec.Log("unknown message received: %#v", msg)
-			}
+			/*
+				switch msg.(type) {
+				case CmdTerminate:
+					return nil
+				default:
+					spec.Log("unknown message received: %#v", msg)
+				}
+			*/
 
 		// if we get something from the command on standard out or
 		// standard error, send it out the stream to the user.
