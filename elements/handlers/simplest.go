@@ -101,7 +101,7 @@ func InteractiveCounterOut(req *request.Request) {
 
 			fmt.Println("Incoming message from user found")
 			var msgcontent int64
-			err := json.Unmarshal(incoming, &msgcontent)
+			err := json.Unmarshal(incoming.JSON, &msgcontent)
 			if err != nil {
 				// FIXME: Need better logging. Perhaps a default error-like return?
 				fmt.Println("Error unmarshaling message:", err)

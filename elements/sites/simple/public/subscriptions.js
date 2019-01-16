@@ -180,9 +180,10 @@ substream.prototype.open = function(arguments) {
     strestLogger(this.stRestSession.requests);
 }
 
-substream.prototype.send = function(msg) {
+substream.prototype.send = function(type, msg) {
     this.stRestSession._rawSendJSON("event",
                                     {dest: this.substream_id,
+                                     type: type,
                                      message: msg});
 }
 

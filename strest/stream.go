@@ -64,11 +64,10 @@ type StreamID string
 // EventFromUser represents an incoming event from whatever is concretely
 // instantiating the stream.
 type EventFromUser struct {
-	Dest  SubstreamID `json:"dest"`
-	Close bool        `json:"close,omitempty"`
-	// FIXME: Include a type field here maybe, so the RawMessage doesn't
-	// have to be reparsed yet again just for that?
+	Dest    SubstreamID     `json:"dest"`
+	Close   bool            `json:"close,omitempty"`
 	Message json.RawMessage `json:"message,omitempty"`
+	Type    string          `json:"type"`
 }
 
 // EventToUser represents an outgoing event from whatever is concretely
@@ -204,7 +203,7 @@ func (s *Stream) serve() {
 				ss := &substream{
 					substreamID: ssID,
 					toUser:      s.fromSubstreamToUser,
-					fromUser:    make(chan json.RawMessage),
+					fromUser:    make(chan TypedJSON),
 					canReceive:  msg.canReceive,
 				}
 				s.streamMembers[ssID] = ss
@@ -289,7 +288,7 @@ func (s *Stream) serve() {
 			}
 
 			fmt.Println("Sending to substream fromUser")
-			ss.fromUser <- incoming.Message
+			ss.fromUser <- TypedJSON{incoming.Type, incoming.Message}
 		}
 	}
 }
