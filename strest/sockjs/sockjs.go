@@ -1,5 +1,9 @@
 package sockjs
 
+// FIXME: This becomes an infinite loop when the client tries to connect to
+// the socket without proper authorization. It gets the login page and the
+// sockjs client then just retries instantly.
+
 import (
 	"context"
 	"fmt"

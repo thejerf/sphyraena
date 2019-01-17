@@ -266,6 +266,13 @@ func (s *Stream) serve() {
 				continue
 			}
 
+			if incoming.Close {
+				close(ss.fromUser)
+				delete(s.streamMembers, dest)
+				fmt.Println("Closing stream")
+				continue
+			}
+
 			if !ss.canReceive {
 				// Eat the message, because the stream can't receive
 				// it. Should some sort of message be sent back? This
@@ -277,13 +284,6 @@ func (s *Stream) serve() {
 				fmt.Println("Bailing out of message because substream",
 					ss, "can't receive")
 				fmt.Printf("Substream type: %T\n", ss)
-				continue
-			}
-
-			if incoming.Close {
-				close(ss.fromUser)
-				delete(s.streamMembers, dest)
-				fmt.Println("Closing stream")
 				continue
 			}
 

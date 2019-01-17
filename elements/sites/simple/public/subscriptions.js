@@ -165,12 +165,13 @@ function substream(url, stRestSession, eventHandler, onsuccess, onfail) {
     this.substream_id = undefined;
 }
 
-substream.prototype.open = function(arguments) {
-    var header = {};
+substream.prototype.open = function(body, header) {
+    console.log("body");
+    console.log(body);
     var request_id = this.stRestSession.idincr++;
     // FIXME: Arguably, either POST or a custom verb should be
     // used. Probably the latter, since this never flows through proxies or anything.
-    var httpRequest = {method: "GET", url: this.url, header: header, body: "",
+    var httpRequest = {method: "POST", url: this.url, header: header, body: JSON.stringify(body),
                        request_id: request_id};
     this.stRestSession.requests[request_id] = this;
     strestLogger("Set requests " + request_id);

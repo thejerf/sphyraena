@@ -1,6 +1,8 @@
 package strest
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 type TypedJSON struct {
 	Type string

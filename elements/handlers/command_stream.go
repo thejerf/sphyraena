@@ -7,7 +7,10 @@ import (
 	"os/exec"
 
 	"github.com/thejerf/sphyraena/request"
-	"github.com/thejerf/sphyraena/sphyrw"
+)
+
+const (
+	msgTerminate = "terminate"
 )
 
 // CommandSpecification allows you to specify a command to be run by the
@@ -62,7 +65,8 @@ type CmdError struct {
 // CmdExit will be emitted when the command has exited, and contains the
 // error code returned by it.
 type CmdExited struct {
-	ExitCode int `json:"exit_code"`
+	Type     string `json:"type"`
+	ExitCode int    `json:"exit_code"`
 }
 
 // CmdTerminate is a message sent back to the stream that tells the server
@@ -77,7 +81,6 @@ type CmdTerminate struct{}
 // left up to the original caller, which is why an error is returned.
 func CommandResult(
 	spec CommandSpecification,
-	rw *sphyrw.SphyraenaResponseWriter,
 	req *request.Request,
 ) error {
 	s, err := req.SubstreamToUser()
@@ -93,13 +96,22 @@ func CommandResult(
 		// should be constructed so that if we are exiting, the command is
 		// terminated already, so that the sources of these channels are
 		// already guaranteed to produce no more messages.
-		select {
-		case <-stdoutC:
-		default:
+	DRAIN1LOOP:
+		for {
+			select {
+			case m := <-stdoutC:
+				fmt.Println(m)
+			default:
+				break DRAIN1LOOP
+			}
 		}
-		select {
-		case <-stderrC:
-		default:
+	DRAIN2LOOP:
+		for {
+			select {
+			case <-stderrC:
+			default:
+				break DRAIN2LOOP
+			}
 		}
 	}()
 
@@ -140,6 +152,11 @@ func CommandResult(
 
 	caughtExitCode := false
 
+	// Looks like we have successfully processed the request
+	req.StreamResponse(request.StreamRequestResult{
+		SubstreamID: s.SubstreamID(),
+	})
+
 	// command is now guaranteed to have been started, successfully at
 	// least according to the OS.
 	defer func() {
@@ -159,6 +176,7 @@ func CommandResult(
 	// And now we enter a message pump, managing the messages going back
 	// and forth between all these bits and pieces.
 	for {
+		fmt.Println("Cmd loop")
 		select {
 		case msg, ok := <-incoming:
 			if !ok {
@@ -166,14 +184,14 @@ func CommandResult(
 				// remote stream has closed, time to terminate everything.
 				return nil
 			}
-			/*
-				switch msg.(type) {
-				case CmdTerminate:
-					return nil
-				default:
-					spec.Log("unknown message received: %#v", msg)
-				}
-			*/
+
+			switch msg.Type {
+			case msgTerminate:
+				fmt.Println("Requested termination of command")
+				return nil
+			default:
+				spec.Log("unknown message received: %#v", msg)
+			}
 
 		// if we get something from the command on standard out or
 		// standard error, send it out the stream to the user.
@@ -187,7 +205,7 @@ func CommandResult(
 			eventsToUser <- s.Message(
 				// FIXME: Figure out how to get the exit code
 				// FIXME: handle if it's not an exit code!
-				CmdExited{ExitCode: 0},
+				CmdExited{ExitCode: 0, Type: "exit"},
 			)
 			caughtExitCode = true
 		}
