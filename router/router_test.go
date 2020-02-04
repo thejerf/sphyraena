@@ -22,12 +22,14 @@ var SF2 = request.HandlerFunc(sf2)
 
 func (sr *SphyraenaRouter) mustGet(t *testing.T, url string) request.Handler {
 	req, _ := http.NewRequest("GET", url, nil)
-	ctx, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req, false)
-	handler, _, err := sr.getStrest(ctx)
-	if err != nil {
-		t.Fatal("Could not get request:", err)
+	sphyReq, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req,
+		false)
+	routerReq := newRequest(sphyReq)
+	result := sr.Route(routerReq)
+	if result.Error != nil {
+		t.Fatal("Could not get request:", result.Error)
 	}
-	return handler
+	return result.Handler
 }
 
 // yup, this is cheating. but then, note the final five characters of this

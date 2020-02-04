@@ -47,6 +47,8 @@ FileSystemServer and trying to serve out content correctly is still
 a minefield, and any additional validation you can add for your use case
 is well advised.
 
+FIXME: Provide a clean example of how to wrap this.
+
 Improvements
 
  * Go has no generic "file is hidden" attribute; could use some OS-specific

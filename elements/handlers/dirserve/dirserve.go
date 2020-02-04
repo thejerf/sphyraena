@@ -85,6 +85,7 @@ func (fss *FileSystemServer) MayStream() bool {
 	return false
 }
 
+// ServeStreaming serves the given request.
 func (fss *FileSystemServer) ServeStreaming(rw *sphyrw.SphyraenaResponseWriter, req *request.Request) {
 	if len(req.RemainingPath) > 0 {
 		if req.RemainingPath != path.Clean(req.RemainingPath) {
