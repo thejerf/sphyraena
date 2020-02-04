@@ -142,3 +142,46 @@ func (sc StreamClause) GetRouteBlock() *RouteBlock {
 func (sc StreamClause) Prototype() RouterClause {
 	return StreamClause{}
 }
+
+// ExactLocation matches if and only if the location match is EXACT. This
+// allows putting specific matches in front of things that will forward
+// entire chunks of the URL space. This is useful for things like an index
+// page, because otherwise a match on / will forward everything down this
+// route block.
+type ExactLocation struct {
+	Location    string `json:string`
+	*RouteBlock `json:route_block`
+}
+
+// Route implements the RoutingClause interface.
+func (el *ExactLocation) Route(rr *Request) (res Result) {
+	path := rr.CurrentPath()
+
+	fmt.Println(string(path), string(el.Location))
+	if bytes.Equal(path, []byte(el.Location)) {
+		rr.ConsumePath(len(el.Location))
+		res.RouteBlock = el.RouteBlock
+	}
+
+	return
+}
+
+// Name return exact_location.
+func (el *ExactLocation) Name() string {
+	return "exact_location"
+}
+
+// Argument returns the arguments for the exact location.
+func (el *ExactLocation) Argument() string {
+	return el.Location
+}
+
+// Prototype returns an ExactLocation object.
+func (el *ExactLocation) Prototype() RouterClause {
+	return &ExactLocation{}
+}
+
+// AddExactLocation adds the given ExactLocation to a RouteBlock.
+func AddExactLocation(rb *RouteBlock, path string, h request.Handler) {
+	rb.Add(&ExactLocation{path, NewRouteBlock(ForwardClause{h})})
+}
