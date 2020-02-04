@@ -2,6 +2,8 @@ package session
 
 import (
 	"errors"
+	"fmt"
+	"reflect"
 
 	"github.com/thejerf/sphyraena/identity"
 	"github.com/thejerf/sphyraena/secret"
@@ -107,4 +109,101 @@ type SessionServer interface {
 	NewSession(*identity.Identity) (Session, error)
 
 	secret.AuthenticationUnwrappers
+}
+
+// GetSessionFrom retrieves the session from the target SessionServer, and
+// if the type of that session is the as the passed-in session, copies it
+// into the passed-in session pointer, otherwise returns an error. session
+// must be a pointer to a type that matches the type coming out of the
+// SessionServer.
+//
+// If the type is mismatched, will return an ErrWrongSessionType instance.
+//
+// ErrSessionNotFound is also a reasonable return value from this.
+func GetSessionFrom(ss SessionServer, id SessionID, session interface{}) error {
+	passedType := reflect.TypeOf(session)
+	passedVal := reflect.ValueOf(session)
+	if passedType.Kind() != reflect.Ptr {
+		return errors.New("non-pointer passed to GetSessionFrom")
+	}
+
+	fetchedSession, err := ss.GetSession(id)
+	if err != nil {
+		return err
+	}
+
+	fetchedType := reflect.TypeOf(fetchedSession)
+	fetchedVal := reflect.ValueOf(fetchedSession)
+
+	// If, as is likely, the returned session is a pointer that can be
+	// assigned to the passed-in session:
+	if fetchedType.Elem().AssignableTo(passedType.Elem()) {
+		reflect.Indirect(passedVal).Set(reflect.Indirect(fetchedVal))
+		return nil
+	}
+
+	// If, for some odd reason, the session is not a pointer value...
+	// FIXME: Should take the time to write the test for this, but it's
+	// laborious to create a non-pointer session just for this...
+	if fetchedType.AssignableTo(passedType.Elem()) {
+		reflect.Indirect(passedVal).Set(fetchedVal)
+		return nil
+	}
+
+	return ErrWrongSessionType{
+		Expected: passedType.Elem(),
+		Actual:   fetchedType,
+	}
+}
+
+// NewSessionFor uses the given SessionServer to create a new session, and
+// copies the result into the passed-in session pointer. session must be a
+// pointer to a type that matches the type coming out of the SessionServer.
+//
+// If the type is mismatched, will return an ErrWrongSessionType.
+func NewSessionFor(ss SessionServer, id *identity.Identity, session interface{}) error {
+	passedType := reflect.TypeOf(session)
+	passedVal := reflect.ValueOf(session)
+	if passedType.Kind() != reflect.Ptr {
+		return errors.New("non-pointer passed to NewSessionFor")
+	}
+
+	newSession, err := ss.NewSession(id)
+	if err != nil {
+		return err
+	}
+
+	newType := reflect.TypeOf(newSession)
+	newVal := reflect.ValueOf(newSession)
+
+	// If, as is likely, the returned session is a pointer that can be
+	// assigned to the passed-in session:
+	if newType.Elem().AssignableTo(passedType.Elem()) {
+		reflect.Indirect(passedVal).Set(reflect.Indirect(newVal))
+		return nil
+	}
+
+	// If, for some odd reason, the session is not a pointer value...
+	// FIXME: Should take the time to write the test for this, but it's
+	// laborious to create a non-pointer session just for this...
+	if newType.AssignableTo(passedType.Elem()) {
+		reflect.Indirect(passedVal).Set(newVal)
+		return nil
+	}
+
+	return ErrWrongSessionType{
+		Expected: passedType.Elem(),
+		Actual:   newType,
+	}
+}
+
+type ErrWrongSessionType struct {
+	Expected reflect.Type
+	Actual   reflect.Type
+}
+
+func (ewst ErrWrongSessionType) Error() string {
+	return fmt.Sprintf("wrong session type, expected %s/%s, got %s/%s",
+		ewst.Expected.PkgPath(), ewst.Expected.Name(),
+		ewst.Actual.PkgPath(), ewst.Actual.Name())
 }
