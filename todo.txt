@@ -5,9 +5,9 @@
   view of current streams". The latter in particular only works with a
   particular server, values are nominally global, and identity is certainly
   global.
+
+  Streams need to de-integrated with the Session. You can have more than one.
 * SphyraenaResponseWriter is WTF too long. Needs to be shorter somewhere.
-* The startup procedure needs to be simpler. Basically the user just needs
-  to be able to specify the various pieces, and they should know how to
-  wire themselves together, via interfaces if necessary.
+  * Also: session.SessionID -> session.ID, several other instances.
 * The router textual serialization really needs to be finished and usable.
 * The router clauses need nicer returns than router.Result{}.
