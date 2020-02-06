@@ -80,3 +80,18 @@ func (g *Generator) generate() *Secret {
 	}
 	return &Secret{b}
 }
+
+// Get retrieves a new secret from the cryptographically-random number
+// generator, synchronously. This is especially useful for testing.
+func Get() *Secret {
+	b := make([]byte, 32)
+	n, err := rand.Reader.Read(b)
+
+	if err != nil {
+		panic(fmt.Errorf("While making secret keys, couldn't read PSRNG: %s", err.Error()))
+	}
+	if n != 32 {
+		panic(fmt.Errorf("While making secret keys, could only read %d bytes", n))
+	}
+	return &Secret{b}
+}
