@@ -10,6 +10,12 @@ only happen bringing up VMs, you may have guessable session IDs at first.
 It's your job to ensure that your OS correctly stores entropy between
 boots, and that you seed the CPRNG somehow between VM bring-ups.
 
+For testing purposes, to create test SessionIDs, just create whatever
+string you like and convert it to a session.SessionID in your code.
+While a randomly created session won't be accepted by Sphyraena as
+a whole, it will suit many testing scenarios where you are not interacting
+with Sphyraena.
+
 */
 package session
 
@@ -36,9 +42,7 @@ const (
 //   itself, it's probably going to be unmistakeably Sphryaena. But
 //   I'm not willing to give up the signing...
 // * Session ID Length: Minimum suggested is 128 bits, this has a
-//   cryptographic RNG generating 256 bits. That is not exactly the same
-//   thing as "256 bits", but it's difficult to imagine an attacker
-//   exploiting this.
+//   cryptographic RNG generating 256 bits.
 // * Session ID entropy: Inherited from your CPRNG implementation, but this
 //   should in all cases be as good as Sphyraena can possibly do. (There's
 //   nothing Sphyraena can do about low-entropy OS pools.)
@@ -160,6 +164,13 @@ func (skg *SessionIDGenerator) generate(sessionID []byte) SessionID {
 	// resized because that's where it started.
 	// We can't help allocating for these but at least we should avoid
 	// allocating too many things.
+	// This is a bit of a brute-force way of *ensuring* that the only valid
+	// session IDs come from us, meaning that user implementations of
+	// SessionServers do not need to worry about session fixation attacks
+	// where an attacker picks a session; an attacker is not capable of
+	// correctly naming a new session ID Sphyraena will accept. Combined with
+	// the session cookie not being available to Javascript, only accepted
+	// over HTTPS, etc., it should prevent session fixation entirely.
 	sessionID = skg.hmacer.Sum(sessionID)
 	skg.hmacer.Reset()
 	// finally:  we Base64 that into a string, which is now independent of the

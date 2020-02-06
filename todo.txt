@@ -9,5 +9,10 @@
   Streams need to de-integrated with the Session. You can have more than one.
 * SphyraenaResponseWriter is WTF too long. Needs to be shorter somewhere.
   * Also: session.SessionID -> session.ID, several other instances.
+* The secret and session ID generator should be stuffed in a branch
+  somewhere and decommisioned. They complexify setup to save non-zero, but
+  rather marginal, amounts of time, and even that under certain circumstances.
 * The router textual serialization really needs to be finished and usable.
 * The router clauses need nicer returns than router.Result{}.
+* To allow session ID rotation, it should be a set where we can use
+  multiple, and rotate them in and out through time.

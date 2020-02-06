@@ -3,6 +3,7 @@ package secret
 import (
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestGenerator(t *testing.T) {
@@ -43,6 +44,29 @@ func TestGeneatorBadReadHandling(t *testing.T) {
 		<-g.output
 	}()
 	g.Serve()
+}
+
+func BenchmarkSecretGeneration(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		Get()
+	}
+}
+
+func BenchmarkSecretServing(b *testing.B) {
+	g := NewGenerator(b.N)
+	go g.Serve()
+	defer g.Stop()
+
+	// wait for it to fill up
+	for len(g.output) < b.N {
+		time.Sleep(time.Millisecond)
+	}
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		g.Get()
+	}
 }
 
 type badReader struct{}
