@@ -99,3 +99,12 @@ func Get() *Secret {
 type Server interface {
 	Get() *Secret
 }
+
+type directSecretServer struct{}
+
+func (dss directSecretServer) Get() *Secret {
+	return Get()
+}
+
+// DirectSecretServer serves secrets out directly
+var DirectSecretServer = directSecretServer{}

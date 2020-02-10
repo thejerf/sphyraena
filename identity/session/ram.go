@@ -61,6 +61,10 @@ func NewRAMServer(
 	secretGenerator secret.Server,
 	settings *RAMSessionSettings,
 ) *RAMSessionServer {
+	if settings == nil {
+		settings = &RAMSessionSettings{}
+	}
+
 	ss := &RAMSessionServer{
 		sessions:           map[SessionID]*RAMSession{},
 		sessionIDGenerator: sig,
