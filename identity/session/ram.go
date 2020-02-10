@@ -40,7 +40,7 @@ var _ SessionServer = &RAMSessionServer{}
 // administrative access, where the vast majority of users are unauth'ed.
 type RAMSessionServer struct {
 	sessions           map[SessionID]*RAMSession
-	sessionIDGenerator *SessionIDGenerator
+	sessionIDGenerator SessionIDManager
 	secretGenerator    *secret.Generator
 	*RAMSessionSettings
 
@@ -56,7 +56,11 @@ type RAMSessionSettings struct {
 // NewRAMServer returns a new RAM-based session server, using the given
 // settings. Once the settings have been passed to this object you must
 // not modify them.
-func NewRAMServer(sig *SessionIDGenerator, secretGenerator *secret.Generator, settings *RAMSessionSettings) *RAMSessionServer {
+func NewRAMServer(
+	sig SessionIDManager,
+	secretGenerator *secret.Generator,
+	settings *RAMSessionSettings,
+) *RAMSessionServer {
 	ss := &RAMSessionServer{
 		sessions:           map[SessionID]*RAMSession{},
 		sessionIDGenerator: sig,

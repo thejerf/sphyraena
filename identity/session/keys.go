@@ -19,6 +19,9 @@ with Sphyraena.
 */
 package session
 
+// FIXME: We're going to eliminate the generator server, which will remove
+// the duplication present here.
+
 import (
 	"crypto/hmac"
 	"crypto/rand"
@@ -194,4 +197,64 @@ func (skg *SessionIDGenerator) Check(sessionID SessionID) bool {
 	mac.Write(b[:32])
 	expected := mac.Sum(nil)
 	return hmac.Equal(expected, b[32:])
+}
+
+type SessionIDManager interface {
+	Get() SessionID
+	Check(sessionID SessionID) bool
+}
+
+type SessionIDs struct {
+	secret []byte
+}
+
+func (sids SessionIDs) Get() SessionID {
+	sessionID := make([]byte, 64)
+
+	n, err := rand.Reader.Read(sessionID[:32])
+	if err != nil {
+		panic(fmt.Errorf("While making session keys, couldn't read from PSRNG: %s", err.Error()))
+	}
+	if n != 32 {
+		panic(fmt.Errorf("While making session keys, could only read %d bytes", n))
+	}
+	// per the interface hash.Hash, this can not return an error
+	hmacer := hmac.New(sha256.New, sids.secret)
+	_, _ = hmacer.Write(sessionID)
+	// fourth: append the 32-bytes of hmac onto the sessionID, which will
+	// then return the now 64-byte-len slice, which did not have to be
+	// resized because that's where it started.
+	// We can't help allocating for these but at least we should avoid
+	// allocating too many things.
+	// This is a bit of a brute-force way of *ensuring* that the only valid
+	// session IDs come from us, meaning that user implementations of
+	// SessionServers do not need to worry about session fixation attacks
+	// where an attacker picks a session; an attacker is not capable of
+	// correctly naming a new session ID Sphyraena will accept. Combined with
+	// the session cookie not being available to Javascript, only accepted
+	// over HTTPS, etc., it should prevent session fixation entirely.
+	sessionID = hmacer.Sum(sessionID)
+	// finally:  we Base64 that into a string, which is now independent of the
+	// slice and we can re-use the same 64-byte slice again and again.
+	return SessionID(base64.StdEncoding.EncodeToString(sessionID))
+}
+
+func (sids SessionIDs) Check(sessionID SessionID) bool {
+	if len(sessionID) != sessionIDLength {
+		return false
+	}
+
+	b, err := base64.StdEncoding.DecodeString(string(sessionID))
+	if err != nil {
+		return false
+	}
+
+	mac := hmac.New(sha256.New, sids.secret)
+	mac.Write(b[:32])
+	expected := mac.Sum(nil)
+	return hmac.Equal(expected, b[32:])
+}
+
+func NewSessionIDs(secret []byte) SessionIDs {
+	return SessionIDs{secret}
 }

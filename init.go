@@ -25,13 +25,13 @@ type Sphyraena struct {
 // all the services....
 
 type Args struct {
-	SessionIDGenerator *session.SessionIDGenerator
+	SessionIDGenerator session.SessionIDManager
 	SecretGenerator    *secret.Generator
 	SessionServer      session.SessionServer
 
 	// This is to allow for the fact that the user may want to use the defaults
 	SessionServerFunc func(
-		*session.SessionIDGenerator,
+		session.SessionIDManager,
 		*secret.Generator,
 	) session.SessionServer
 }
@@ -55,9 +55,10 @@ func New(args *Args) *Sphyraena {
 	// BUG(BNSEC-12345): argle bargle bargle!
 
 	if args.SessionIDGenerator == nil {
-		args.SessionIDGenerator = session.NewSessionIDGenerator(128, nil)
+		sessionIDGenerator := session.NewSessionIDGenerator(128, nil)
+		supervisor.Add(sessionIDGenerator)
+		args.SessionIDGenerator = sessionIDGenerator
 	}
-	supervisor.Add(args.SessionIDGenerator)
 	if args.SecretGenerator == nil {
 		args.SecretGenerator = secret.NewGenerator(128)
 	}
