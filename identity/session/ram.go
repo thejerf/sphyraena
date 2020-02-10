@@ -41,7 +41,7 @@ var _ SessionServer = &RAMSessionServer{}
 type RAMSessionServer struct {
 	sessions           map[SessionID]*RAMSession
 	sessionIDGenerator SessionIDManager
-	secretGenerator    *secret.Generator
+	secretGenerator    secret.Server
 	*RAMSessionSettings
 
 	// This locks the session map and all the expiration times on the sessions.
@@ -58,7 +58,7 @@ type RAMSessionSettings struct {
 // not modify them.
 func NewRAMServer(
 	sig SessionIDManager,
-	secretGenerator *secret.Generator,
+	secretGenerator secret.Server,
 	settings *RAMSessionSettings,
 ) *RAMSessionServer {
 	ss := &RAMSessionServer{

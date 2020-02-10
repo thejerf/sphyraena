@@ -95,3 +95,7 @@ func Get() *Secret {
 	}
 	return &Secret{b}
 }
+
+type Server interface {
+	Get() *Secret
+}
