@@ -134,6 +134,7 @@ func TestMultipleLocation(t *testing.T) {
 	}
 
 	sr = New(request.NewSphyraenaState(nil, nil))
+	_ = sr.Location("/")
 	v1Router := sr.Location("/v1/")
 	AddExactLocation(v1Router, "auth", SF2)
 	rb1 = sr.Location("/v2/")

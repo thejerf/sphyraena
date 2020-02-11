@@ -167,6 +167,7 @@ func (rf *RouterFrame) Reset(path []byte) {
 	rf.holes = rf.holes[:0]
 	rf.cookies = map[string]*cookie.OutCookie{}
 	rf.path = path
+	rf.consume = 0
 	rf.parameters = nil
 }
 
@@ -246,7 +247,8 @@ func (rr *Request) SetHeader(key, value string) {
 }
 
 func (rr *Request) ConsumePath(c int) {
-	dprintln("consuming this much path in frame", rr.current, "path amount:", c)
+	dprintln("consuming this much path in frame", rr.current, "path	amount:", c)
+	ddump(rr.frames[:rr.current+1])
 	rr.frames[rr.current].consume += c
 }
 
@@ -270,7 +272,7 @@ func (rr *Request) Finalize() {
 }
 
 func (rr *Request) advance() error {
-	dprintln("creating a new frame", rr.current+1, "in the request")
+	dprintln("creating a new frame", rr.current+1, "in the request from", rr.current)
 	prevFrame := rr.frames[rr.current]
 	rr.current++
 	rr.frames = append(rr.frames, RouterFrame{})
@@ -281,7 +283,7 @@ func (rr *Request) advance() error {
 
 func (rr *Request) retreat() {
 	// by construction, this won't go negative
-	ddump("retreating from frame:", rr.current, rr.frames[rr.current])
+	ddump("retreating from frame:", rr.current, rr.frames[:rr.current])
 	rr.current--
 }
 
@@ -362,10 +364,11 @@ type RouteBlock struct {
 // As a special case, a call to this method will never itself yield a
 // non-nil *RouteBlock.
 func (rb *RouteBlock) Route(rr *Request) Result {
-	rr.advance()
-	ddump(rr.frames[rr.current])
+	//rr.advance()
+	ddump("current frame:", rr.frames[rr.current])
 
 	for _, router := range rb.clauses {
+		rr.advance()
 		dprintln("checking clause", router.Name(), router.Argument())
 		res := router.Route(rr)
 		ddump("result:", res)
@@ -388,16 +391,19 @@ func (rb *RouteBlock) Route(rr *Request) Result {
 				dprintln("error(2):", res2.Error)
 				return res2
 			}
+			dprintln("Nothing found in this route block")
 		}
 		if res.Error != nil {
 			dprintln("error(1):", res.Error)
 			return res
 		}
+		// FIXME: It may be possible to just "reset" this here
+		rr.retreat()
 	}
 
 	// NOT deferred above on purpose; the "advance"s without corresponding
 	// "retreat"s represent the actual path taken
-	rr.retreat()
+	//rr.retreat()
 
 	// Guess this block doesn't apply/do anything useful.
 	return emptyResult
