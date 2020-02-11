@@ -397,7 +397,7 @@ func (rb *RouteBlock) Route(rr *Request) Result {
 			return res
 		}
 		// FIXME: It may be possible to just "reset" this here
-		rr.frames[rr.current].Reset(rr.frames[rr.current-1].path)
+		rr.frames[rr.current].Reset(rr.frames[rr.current].path)
 	}
 
 	// NOT deferred above on purpose; the "advance"s without corresponding
