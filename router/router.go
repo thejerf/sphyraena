@@ -364,11 +364,10 @@ type RouteBlock struct {
 // As a special case, a call to this method will never itself yield a
 // non-nil *RouteBlock.
 func (rb *RouteBlock) Route(rr *Request) Result {
-	//rr.advance()
+	rr.advance()
 	ddump("current frame:", rr.frames[rr.current])
 
 	for _, router := range rb.clauses {
-		rr.advance()
 		dprintln("checking clause", router.Name(), router.Argument())
 		res := router.Route(rr)
 		ddump("result:", res)
@@ -398,12 +397,12 @@ func (rb *RouteBlock) Route(rr *Request) Result {
 			return res
 		}
 		// FIXME: It may be possible to just "reset" this here
-		rr.retreat()
+		rr.frames[rr.current].Reset(rr.frames[rr.current-1].path)
 	}
 
 	// NOT deferred above on purpose; the "advance"s without corresponding
 	// "retreat"s represent the actual path taken
-	//rr.retreat()
+	rr.retreat()
 
 	// Guess this block doesn't apply/do anything useful.
 	return emptyResult
