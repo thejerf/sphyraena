@@ -2,7 +2,6 @@ package router
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/thejerf/sphyraena/request"
 )
@@ -121,9 +120,7 @@ type StreamClause struct {
 }
 
 func (sc StreamClause) Route(*Request) (res Result) {
-	fmt.Println("In stream clause")
 	res.StreamHandler = sc.StreamHandler
-	fmt.Println("Set stream handler:", res.StreamHandler)
 	return
 }
 
@@ -157,7 +154,7 @@ type ExactLocation struct {
 func (el *ExactLocation) Route(rr *Request) (res Result) {
 	path := rr.CurrentPath()
 
-	fmt.Println(string(path), string(el.Location))
+	dprintln("Checking Exact Location", string(path), string(el.Location))
 	if bytes.Equal(path, []byte(el.Location)) {
 		rr.ConsumePath(len(el.Location))
 		res.RouteBlock = el.RouteBlock

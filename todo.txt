@@ -13,6 +13,7 @@
   * Also: session.SessionID -> session.ID, several other instances.
   * router.RouteBlock -> router.Block
   * router.AddExactLocation -> method on route block
+  * ServeStreaming -> some sort of just Serve
 * The secret and session ID generator should be stuffed in a branch
   somewhere and decommisioned. They complexify setup to save non-zero, but
   rather marginal, amounts of time, and even that under certain circumstances.

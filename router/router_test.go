@@ -114,3 +114,39 @@ func TestLocationForward(t *testing.T) {
 		t.Fatal("Location didn't match correctly")
 	}
 }
+
+func TestMultipleLocation(t *testing.T) {
+	sr := New(request.NewSphyraenaState(nil, nil))
+	rb1 := sr.Location("/abc")
+	rb2 := rb1.Location("/def")
+	rb2.AddLocationReturn("/ghi", SF1)
+
+	req, _ := http.NewRequest("GET", "http://jerf.org/abc/def/ghi", nil)
+	ctx, _ := sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req,
+		false)
+	rreq := newRequest(ctx)
+	result := sr.Route(rreq)
+	if result.Error != nil {
+		t.Fatal(result.Error)
+	}
+	if !samefunc(result.Handler, SF1) {
+		t.Fatal("location didn't match correctly")
+	}
+
+	sr = New(request.NewSphyraenaState(nil, nil))
+	v1Router := sr.Location("/v1/")
+	AddExactLocation(v1Router, "auth", SF2)
+	rb1 = sr.Location("/v2/")
+	AddExactLocation(rb1, "auth", SF1)
+	AddExactLocation(rb1, "somethingelse", SF2)
+	req, _ = http.NewRequest("GET", "http://jerf.org/v2/auth", nil)
+	ctx, _ = sr.sphyraenaState.NewRequest(httptest.NewRecorder(), req, false)
+	rreq = newRequest(ctx)
+	result = sr.Route(rreq)
+	if result.Error != nil {
+		t.Fatal(result.Error)
+	}
+	if !samefunc(result.Handler, SF1) {
+		t.Fatal("location didn't match correctly")
+	}
+}

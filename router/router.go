@@ -81,6 +81,27 @@ import (
 	"github.com/thejerf/sphyraena/sphyrw/hole"
 )
 
+// Debug can be used to debug the routing
+var Debug = false
+
+func dprintln(a ...interface{}) {
+	if Debug {
+		fmt.Println(a...)
+	}
+}
+
+func dprintf(s string, a ...interface{}) {
+	if Debug {
+		fmt.Printf(s, a...)
+	}
+}
+
+func ddump(a ...interface{}) {
+	if Debug {
+		spew.Dump(a...)
+	}
+}
+
 type RouterFrame struct {
 	// The remaining path to be processed after this frame
 	path       []byte
@@ -206,26 +227,31 @@ func (rr *Request) AddSecurityHole(hole hole.SecurityHole) {
 // AddHeader adds an HTTP header to the response only if this frame is used
 // in the final routing request.
 func (rr *Request) AddHeader(key, value string) {
+	ddump("adding header in http request:", rr.current, key, value)
 	rr.frames[rr.current].headersAdd.Add(key, value)
 }
 
 // AddCookie adds a cookie to this request, using the current session as
 // the Authenticator. It mirrors cookie.NewOut
 func (rr *Request) AddCookie(c *cookie.OutCookie) {
+	ddump("adding cookie:", rr.current, c)
 	rr.frames[rr.current].cookies[c.Name()] = c
 }
 
 // SetHeader sets the given HTTP header in the response only if this frame
 // is used in the final routing request.
 func (rr *Request) SetHeader(key, value string) {
+	ddump("setting header in route:", rr.current, key, value)
 	rr.frames[rr.current].headersSet.Set(key, value)
 }
 
 func (rr *Request) ConsumePath(c int) {
+	dprintln("consuming this much path in frame", rr.current, "path amount:", c)
 	rr.frames[rr.current].consume += c
 }
 
 func (rr *Request) ConsumeEntirePath() {
+	dprintln("consuming entire path in", rr.current)
 	curFrame := &rr.frames[rr.current]
 	curFrame.consume = len(curFrame.path)
 }
@@ -235,6 +261,7 @@ func (rr *Request) PathConsumed() []byte {
 	for _, frame := range rr.frames[0 : rr.current+1] {
 		consumed += frame.consume
 	}
+	dprintln("consumed in", rr.current, "is", string(rr.basePath[0:consumed]))
 	return rr.basePath[0:consumed]
 }
 
@@ -243,6 +270,7 @@ func (rr *Request) Finalize() {
 }
 
 func (rr *Request) advance() error {
+	dprintln("creating a new frame", rr.current+1, "in the request")
 	prevFrame := rr.frames[rr.current]
 	rr.current++
 	rr.frames = append(rr.frames, RouterFrame{})
@@ -253,6 +281,7 @@ func (rr *Request) advance() error {
 
 func (rr *Request) retreat() {
 	// by construction, this won't go negative
+	ddump("retreating from frame:", rr.current, rr.frames[rr.current])
 	rr.current--
 }
 
@@ -322,13 +351,8 @@ type RouterClause interface {
 	Prototype() RouterClause
 }
 
-// A RouteBlock is simply a collection of Routers, which can also be used
+// A RouteBlock is simply a collection of RouteClauses, which can also be used
 // as a Router.
-//
-// While some convenience methods are included, it is important to point
-// out that this is all fully public on purpose. You are allowed to
-// construct this in any manner you see fit, as long as you don't modify it
-// once serving starts.
 type RouteBlock struct {
 	clauses []RouterClause
 }
@@ -338,43 +362,35 @@ type RouteBlock struct {
 // As a special case, a call to this method will never itself yield a
 // non-nil *RouteBlock.
 func (rb *RouteBlock) Route(rr *Request) Result {
-	// expanding on the second paragraph out of view of the public docs: it's
-	// important that RouteBlocks do not yield non-nil RouteBlocks of their
-	// own, because it breaks the recursion below. It's also important from
-	// a type-system point of view that we can guarantee no non-nil returns
-	// from RouteBlocks because Sphyraena's internals use that guarantee
-	// themselves; for instance the SphyraenaRouter has a RouteBlock and
-	// not a Router for that very reason. By having "RouteBlock"s instead
-	// of the generic Router we can get these guarantees where we need them.
-	//
-	// This can be verified by observing that all returns in this function
-	// have nil in the second param.
-
 	rr.advance()
+	ddump(rr.frames[rr.current])
 
 	for _, router := range rb.clauses {
+		dprintln("checking clause", router.Name(), router.Argument())
 		res := router.Route(rr)
+		ddump("result:", res)
 		if res.Handler != nil || res.StreamHandler != nil {
-			fmt.Println(res.StreamHandler, res.Handler)
+			dprintln("handler(1)", res.Handler, res.StreamHandler, "returned, done")
 			return res
 		}
 		if res.RouteBlock != nil {
+			dprintln("route block return, routing")
 			res2 := res.RouteBlock.Route(rr)
-			spew.Dump("Routing result:", res2)
 			if res2.Handler != nil || res2.StreamHandler != nil {
-				fmt.Println("Returning because", res2.Handler, res2.StreamHandler)
+				dprintln("handler(2)", res2.Handler, res2.StreamHandler, "returned, done")
 				return res2
 			}
-			fmt.Println("Didn't return")
 			// by construction, RouteBlocks never return more RouteBlocks
 			if res2.RouteBlock != nil {
 				panic("RouteBlock.Route return a non-nil RouteBlock")
 			}
 			if res2.Error != nil {
+				dprintln("error(2):", res2.Error)
 				return res2
 			}
 		}
 		if res.Error != nil {
+			dprintln("error(1):", res.Error)
 			return res
 		}
 	}
