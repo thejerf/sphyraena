@@ -233,7 +233,7 @@ func (sids SessionIDs) Get() SessionID {
 	// correctly naming a new session ID Sphyraena will accept. Combined with
 	// the session cookie not being available to Javascript, only accepted
 	// over HTTPS, etc., it should prevent session fixation entirely.
-	sessionID = hmacer.Sum(sessionID)
+	sessionID = hmacer.Sum(sessionID[:32])
 	// finally:  we Base64 that into a string, which is now independent of the
 	// slice and we can re-use the same 64-byte slice again and again.
 	return SessionID(base64.StdEncoding.EncodeToString(sessionID))
